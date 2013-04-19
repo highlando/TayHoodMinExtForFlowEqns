@@ -1,7 +1,7 @@
 Splitting of Taylor Hood Discretizations and Minimal Extension for Stable Time Integration of Nonviscous Flow
 ========
 
-For the theory see our [Preprint](www3.math.tu-berlin.de/preprints/files/Preprint-11-2013.pdf).
+For the theory see our [Preprint](http://www3.math.tu-berlin.de/preprints/files/Preprint-11-2013.pdf).
 
 To check invertibility of the local FEM divergence matrices of regular n-gons use the script `detOfRegTayHooCluster.py`.
 
