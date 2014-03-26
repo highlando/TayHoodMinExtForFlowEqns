@@ -1,7 +1,6 @@
 import sympy as smp
 from sympy import diff, sin, cos, pi
 
-
 x, y, t, nu, om = smp.symbols('x,y,t,nu,om')
 
 ft = smp.sin(om*t)
