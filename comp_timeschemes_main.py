@@ -10,7 +10,7 @@ import dolfin_to_nparrays as dtn
 import time_int_schemes as tis
 import smartminex_tayhoomesh
 
-from manufactored_sol import ProbParams
+from prob_defs import ProbParams
 
 
 class TimestepParams(object):
@@ -37,13 +37,13 @@ class TimestepParams(object):
         self.TolCorB = True
 
 
-def solve_stokesTimeDep(method=2, Omega=8, tE=None, Prec=None,
+def solve_euler_timedep(method=2, Omega=8, tE=None, Prec=None,
                         N=12, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None):
     """system to solve
 
-             du\dt - lap u + grad p = fv
-                     div u          = fp
+             du\dt + (u*D)u + grad p = fv
+                      div u          = fp
 
     """
 
@@ -52,7 +52,8 @@ def solve_stokesTimeDep(method=2, Omega=8, tE=None, Prec=None,
         2: 'HalfExpEulInd2'}
 
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
-    PrP = ProbParams(N, Omega)
+    # set nu=0 for Euler flow
+    PrP = ProbParams(N, omega=Omega, nu=0)
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N)
 
@@ -228,4 +229,4 @@ class UpFiles(object):
             self.p_file = dolfin.File("results/pressure.pvd")
 
 if __name__ == '__main__':
-    solve_stokesTimeDep()
+    solve_euler_timedep()

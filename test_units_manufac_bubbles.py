@@ -160,7 +160,7 @@ class TestSmaMinTexFunctions(unittest.TestCase):
         eocc = np.zeros(len(self.Nlist))
 
         for k, N in enumerate(self.Nlist):
-            PrP = tts.ProbParams(N, 12, nu)
+            PrP = tts.ProbParams(N, omega=12, nu=nu)
             # get system matrices as np.arrays
             Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
 
@@ -229,7 +229,7 @@ class TestSmaMinTexFunctions(unittest.TestCase):
         eocc = np.zeros(len(self.Nlist))
 
         for k, N in enumerate(self.Nlist):
-            PrP = tts.ProbParams(N, 8, nu)
+            PrP = tts.ProbParams(N, omega=8, nu=nu)
             # get system matrices as np.arrays
             Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
 

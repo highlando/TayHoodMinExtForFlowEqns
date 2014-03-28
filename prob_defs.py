@@ -59,7 +59,7 @@ def comp_symb_nserhs(u=None, v=None, p=None, nu=None):
 
 class ProbParams(object):
 
-    def __init__(self, N, Omega, nu):
+    def __init__(self, N, omega=None, nu=None):
 
         self.mesh = smartminex_tayhoomesh.getmake_mesh(N)
         self.N = N
@@ -67,7 +67,7 @@ class ProbParams(object):
         self.Q = dolfin.FunctionSpace(self.mesh, "CG", 1)
         self.velbcs = setget_velbcs_zerosq(self.mesh, self.V)
         self.Pdof = 0  # dof removed in the p approximation
-        self.omega = Omega
+        self.omega = omega
         self.nu = nu
 
         x, y, t, nu, om = smp.symbols('x[0], x[1], t, nu, omega')
