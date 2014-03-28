@@ -37,8 +37,8 @@ class TimestepParams(object):
         self.TolCorB = True
 
 
-def solve_stokesTimeDep(method=None, Omega=None, tE=None, Prec=None,
-                        N=None, NtsList=None, LinaTol=None, MaxIter=None,
+def solve_stokesTimeDep(method=2, Omega=8, tE=None, Prec=None,
+                        N=12, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None):
     """system to solve
 
@@ -46,15 +46,6 @@ def solve_stokesTimeDep(method=None, Omega=None, tE=None, Prec=None,
                      div u          = fp
 
     """
-
-    if N is None:
-        N = 12
-
-    if method is None:
-        method = 2
-
-    if Omega is None:
-        Omega = 8
 
     methdict = {
         1: 'HalfExpEulSmaMin',
