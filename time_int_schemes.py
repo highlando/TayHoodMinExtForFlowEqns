@@ -17,7 +17,8 @@ def mass_fem_ip(q1, q2, M):
     """M^-1 inner product
 
     """
-    return np.dot(q1.T.conj(), krypy.linsys.cg(M, q2, tol=1e-12)['xk'])
+    ls = krypy.linsys.LinearSystem(M, q2, self_adjoint=True)
+    return np.dot(q1.T.conj(), (krypy.linsys.Cg(ls, tol=1e-12)).xk)
 
 
 def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc):
@@ -138,7 +139,7 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
         # initial value for tq2
         ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
         tq2_old = spsla.spsolve(M2Sme[-(Np-1):, :], CurFv[-(Np-1):, ])
-        #tq2_old = MLumpI2*CurFv[-(Np-1):,]
+        # tq2_old = MLumpI2*CurFv[-(Np-1):,]
         tq2_old = np.atleast_2d(tq2_old).T
         # state vector of the smaminex system : [ q1^+, tq2^c, p^c, q2^+]
         qqpq_old = np.zeros((Nv + 2*(Np - 1), 1))
@@ -190,28 +191,29 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     except IOError:
                         pass
 
+                cls = krypy.linsys.\
+                    LinearSystem(IterA, Iterrhs, Ml=TsP.Ml, Mr=TsP.Mr,
+                                 ip_B=smamin_prec_fem_ip)
                 q1_tq2_p_q2_new = \
-                    krypy.linsys.gmres(IterA, Iterrhs, x0=qqpq_old,
-                                       Ml=TsP.Ml, Mr=TsP.Mr,
-                                       inner_product=smamin_prec_fem_ip,
-                                       tol=TolCor*TsP.linatol,
-                                       maxiter=TsP.MaxIter,
-                                       max_restarts=8)
-                qqpq_old = np.atleast_2d(q1_tq2_p_q2_new['xk'])
+                    krypy.linsys.RestartedGmres(cls, x0=qqpq_old,
+                                                tol=TolCor*TsP.linatol,
+                                                maxiter=TsP.MaxIter,
+                                                max_restarts=8)
+                qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
 
                 if TsP.SaveTStps:
                     from scipy.io import savemat
                     dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
                     savemat(dname, {'qqpq_old': qqpq_old})
 
-                if q1_tq2_p_q2_new['info'] != 0:
-                    print q1_tq2_p_q2_new['relresvec'][-5:]
-                    raise Warning('no convergence')
+                # if q1_tq2_p_q2_new['info'] != 0:
+                #     print q1_tq2_p_q2_new.resnorms[-5:]
+                #     raise Warning('no convergence')
 
                 print ('Needed {0} of max {1} iterations: ' +
-                       'final relres = {2}\n TolCor was %e').\
-                    format(len(q1_tq2_p_q2_new['relresvec']), TsP.MaxIter,
-                           q1_tq2_p_q2_new['relresvec'][-1], TolCor)
+                       'final relres = {2}\n TolCor was {3}').\
+                    format(len(q1_tq2_p_q2_new.resnorms), TsP.MaxIter,
+                           q1_tq2_p_q2_new.resnorms[-1], TolCor)
 
             q1_old = qqpq_old[:Nv - (Np - 1), ]
             q2_old = qqpq_old[-Npc:, ]
@@ -295,8 +297,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     # M accounts for the FEM discretization
     def _MInv(vp):
         v, p = vp[:Nv, ], vp[Nv:, ]
-        Mv = krypy.linsys.cg(Mc, v, tol=1e-14)['xk']
-        Mp = krypy.linsys.cg(MPc, p, tol=1e-14)['xk']
+        lsv = krypy.linsys.LinearSystem(Mc, v, self_adjoint=True)
+        lsp = krypy.linsys.LinearSystem(MPc, p, self_adjoint=True)
+        Mv = (krypy.linsys.Cg(lsv, tol=1e-14)).xk
+        Mp = (krypy.linsys.Cg(lsp, tol=1e-14)).xk
         return np.vstack([Mv, Mp])
 
     MInv = spsla.LinearOperator(
@@ -337,15 +341,16 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
                 else:
                     TolCor = 1.0
 
-                ret = krypy.linsys.minres(IterA, Iterrhs,
-                                          x0=vp_old, tol=TolCor*TsP.linatol,
-                                          M=MInv)
-                vp_old = ret['xk']
+                curls = krypy.linsys.LinearSystem(IterA, Iterrhs, M=MInv)
+                ret = krypy.linsys.Minres(curls,
+                                          x0=vp_old, tol=TolCor*TsP.linatol
+                                          )
+                vp_old = ret.xk
 
                 print ('Needed {0} of max {1} iterations: ' +
-                       'final relres = {2}\n TolCor was %e').\
-                    format(len(ret['relresvec']), TsP.MaxIter,
-                           ret['relresvec'][-1], TolCor)
+                       'final relres = {2}\n TolCor was {3}').\
+                    format(len(ret.resnorms), TsP.MaxIter,
+                           ret.resnorms[-1], TolCor)
 
             vc = vp_old[:Nv, ]
             pc = PFacI*vp_old[Nv:, ]
@@ -388,8 +393,6 @@ def comp_cont_error(v, fpbc, Q):
 
     conRhs = Function(Q)
     conRhs.vector().set_local(fpbc)
-
-    #raise Warning('debugggg')
 
     ContEr = norm(conRhs.vector() - divv)
 

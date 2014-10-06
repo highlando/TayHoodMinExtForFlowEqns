@@ -19,7 +19,7 @@ class TimestepParams(object):
         self.t0 = 0
         self.tE = 1.0
         self.Omega = 8
-        self.Ntslist = [32]
+        self.Ntslist = [32, 64, 128]
         self.NOutPutPts = 32
         self.method = method
         self.SadPtPrec = True
@@ -27,7 +27,7 @@ class TimestepParams(object):
         self.Residuals = NseResiduals()
         self.linatol = 1e-4  # 0 for direct sparse solver
         self.TolCor = []
-        self.MaxIter = 200
+        self.MaxIter = 100
         self.Ml = None  # preconditioners
         self.Mr = None
         self.ParaviewOutput = False
@@ -37,8 +37,8 @@ class TimestepParams(object):
         self.TolCorB = True
 
 
-def solve_euler_timedep(method=2, Omega=8, tE=None, Prec=None,
-                        N=12, NtsList=None, LinaTol=None, MaxIter=None,
+def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
+                        N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None):
     """system to solve
 
@@ -88,7 +88,7 @@ def solve_euler_timedep(method=2, Omega=8, tE=None, Prec=None,
     (Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals,
      invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba, fv, fp, PrP.velbcs)
 
-    if method != 2:
+    if method == 1:
         # Rearrange the matrices and rhs
         # from smamin_utils import col_columns_atend
         from scipy.io import loadmat
