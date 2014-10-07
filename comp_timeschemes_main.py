@@ -1,4 +1,5 @@
 import dolfin
+import plot_utils as plu
 
 import numpy as np
 # import scipy.sparse as sps
@@ -19,15 +20,15 @@ class TimestepParams(object):
         self.t0 = 0
         self.tE = 1.0
         self.Omega = 8
-        self.Ntslist = [32, 64, 128]
-        self.NOutPutPts = 32
+        self.Ntslist = [128]
+        self.NOutPutPts = 16
         self.method = method
         self.SadPtPrec = True
         self.UpFiles = UpFiles(method)
         self.Residuals = NseResiduals()
-        self.linatol = 1e-4  # 0 for direct sparse solver
+        self.linatol = 0  # 0 for direct sparse solver
         self.TolCor = []
-        self.MaxIter = 100
+        self.MaxIter = 85
         self.Ml = None  # preconditioners
         self.Mr = None
         self.ParaviewOutput = False
@@ -206,6 +207,8 @@ def save_simu(TsP, PrP):
 
     print 'For the error plot, run\nimport plot_utils as ' +\
         'plu\nplu.jsd_plot_errs("' + JsFile + '")'
+    print 'For the error valus, run\nimport plot_utils as ' +\
+        'plu\nplu.jsd_calc_l2errs("' + JsFile + '")'
 
     return
 
@@ -229,4 +232,11 @@ class UpFiles(object):
             self.p_file = dolfin.File("results/pressure.pvd")
 
 if __name__ == '__main__':
-    solve_euler_timedep()
+    import dolfin_navier_scipy.data_output_utils as dou
+    dou.logtofile(logstr='logfile')
+    solve_euler_timedep(method=1, N=80, NtsList=[16])
+    solve_euler_timedep(method=1, N=80, NtsList=[32])
+    solve_euler_timedep(method=1, N=80, NtsList=[64])
+    solve_euler_timedep(method=1, N=80, NtsList=[16])
+    solve_euler_timedep(method=1, N=80, NtsList=[32])
+    solve_euler_timedep(method=1, N=80, NtsList=[64])

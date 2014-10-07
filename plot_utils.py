@@ -1,6 +1,7 @@
-import json
-
 import matplotlib.pyplot as plt
+import numpy as np
+
+import json
 
 
 def load_json_dicts(StrToJs):
@@ -25,11 +26,12 @@ def merge_json_dicts(CurDi, DiToAppend):
     Jsc['PEr'].extend(Jsa['PEr'])
     # Jsc['TolCor'].extend(Jsa['TolCor'])
 
-    JsFile = 'json/MrgdOmeg%dTol%0.2eNTs%dto%dMesh%d' % (Jsc['Omega'],
-                                                         Jsc['LinaTol'],
-                                                         Jsc['TimeDiscs'][0],
-                                                         Jsc['TimeDiscs'][-1],
-                                                         Jsc['SpaceDiscParam']) + Jsc['TimeIntMeth'] + '.json'
+    JsFile = 'json/MrgdOmeg%dTol%0.2eNTs%dto%dMesh%d' \
+        % (Jsc['Omega'],
+           Jsc['LinaTol'],
+           Jsc['TimeDiscs'][0],
+           Jsc['TimeDiscs'][-1],
+           Jsc['SpaceDiscParam']) + Jsc['TimeIntMeth'] + '.json'
 
     f = open(JsFile, 'w')
     f.write(json.dumps(Jsc))
@@ -83,12 +85,21 @@ def jsd_plot_errs(JsDict):
     return
 
 
-def jsd_calc_interrs(JsDict):
+def jsd_calc_l2errs(JsDict):
 
     jsd = load_json_dicts(JsDict)
-    tet0 = jsd['TimeInterval'][1] - jsd['TimeInterval'][0]
-    dx = tet0 / len(PEr)
-
+    timelength = jsd['TimeInterval'][1] - jsd['TimeInterval'][0]
+    contresl, velerrl, perrl = [], [], []
     for i in range(len(jsd['TimeDiscs'])):
-        ErL = []
-        ErL.append(np.sqrt(np.trapz(np.square(PEr), dx=dx)))
+        dx = timelength / jsd['TimeDiscs'][i]
+        contresl.append(np.trapz(jsd['ContiRes'][i], dx=dx))
+        velerrl.append(np.trapz(jsd['VelEr'][i], dx=dx))
+        perrl.append(np.trapz(jsd['PEr'][i], dx=dx))
+
+    print jsd['PEr'][i]
+    print 'L2 errors for method ' + jsd['TimeIntMeth']
+    print 'N = ', jsd['SpaceDiscParam']
+    print 'Nts = ', jsd['TimeDiscs']
+    print 'Velocity Errors: ', velerrl
+    print 'Presure Errors: ', perrl
+    print 'Conti Residuals: ', contresl
