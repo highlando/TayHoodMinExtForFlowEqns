@@ -35,10 +35,11 @@ def merge_json_dicts(CurDi, DiToAppend):
 
     f = open(JsFile, 'w')
     f.write(json.dumps(Jsc))
+    f.close()
 
     print 'Merged data stored in \n("' + JsFile + '")'
 
-    return
+    return JsFile
 
 
 def convpltjsd(Jsc):
@@ -85,7 +86,7 @@ def jsd_plot_errs(JsDict):
     return
 
 
-def jsd_calc_l2errs(JsDict):
+def jsd_calc_l2errs(JsDict, plot=False):
 
     jsd = load_json_dicts(JsDict)
     timelength = jsd['TimeInterval'][1] - jsd['TimeInterval'][0]
@@ -97,9 +98,22 @@ def jsd_calc_l2errs(JsDict):
         velerrl.append(np.sqrt(np.trapz(np.square(jsd['VelEr'][i]), dx=dx)))
         perrl.append(np.sqrt(np.trapz(np.square(jsd['PEr'][i]), dx=dx)))
 
+    Ntsl = jsd['TimeDiscs']
+
     print 'L2 errors for method ' + jsd['TimeIntMeth']
     print 'N = ', jsd['SpaceDiscParam']
     print 'Nts = ', jsd['TimeDiscs']
     print 'Velocity Errors: ', velerrl
     print 'Presure Errors: ', perrl
     print 'Conti Residuals: ', contresl
+    if plot:
+        plt.figure()
+        plt.loglog(Ntsl, velerrl, 'o')
+        plt.title('velerror')
+        plt.figure()
+        plt.loglog(Ntsl, perrl, 'v')
+        plt.title('perror')
+        plt.figure()
+        plt.loglog(Ntsl, contresl, '^')
+        plt.title('contres')
+        plt.show(block=False)
