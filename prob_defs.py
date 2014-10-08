@@ -39,16 +39,20 @@ def comp_symb_nserhs(u=None, v=None, p=None, nu=None):
     x, y, t = smp.symbols('x[0], x[1], t')
     # Stokes case
     rhs1 = smp.simplify(
-        diff(u, t) - nu * (diff(u, x, x) + diff(u, y, y)) + diff(p, x))
+        diff(u, t) - nu * smp.simplify(diff(u, x, x) + diff(u, y, y)) +
+        diff(p, x))
     rhs2 = smp.simplify(
-        diff(v, t) - nu * (diff(v, x, x) + diff(v, y, y)) + diff(p, y))
+        diff(v, t) - nu * smp.simplify(diff(v, x, x) + diff(v, y, y)) +
+        diff(p, y))
 
     # rhs3 = div u --- should be zero!!
     rhs3 = diff(u, x) + diff(v, y)
 
     # Advection (u.D)u
-    ad1 = smp.simplify(u * diff(u, x) + v * diff(u, y))
-    ad2 = smp.simplify(u * diff(v, x) + v * diff(v, y))
+    ad1 = smp.simplify(smp.simplify(u * diff(u, x)) +
+                       smp.simplify(v * diff(u, y)))
+    ad2 = smp.simplify(smp.simplify(u * diff(v, x)) +
+                       smp.simplify(v * diff(v, y)))
 
     rhs1 = smp.simplify(rhs1 + ad1)
     rhs2 = smp.simplify(rhs2 + ad2)
