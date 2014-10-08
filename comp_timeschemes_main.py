@@ -1,5 +1,5 @@
 import dolfin
-import plot_utils as plu
+# import plot_utils as plu
 
 import numpy as np
 # import scipy.sparse as sps
@@ -26,7 +26,7 @@ class TimestepParams(object):
         self.SadPtPrec = True
         self.UpFiles = UpFiles(method)
         self.Residuals = NseResiduals()
-        self.linatol = 0  # 0 for direct sparse solver
+        self.linatol = 1e-4  # 0 for direct sparse solver
         self.TolCor = []
         self.MaxIter = 85
         self.Ml = None  # preconditioners
@@ -234,9 +234,13 @@ class UpFiles(object):
 if __name__ == '__main__':
     import dolfin_navier_scipy.data_output_utils as dou
     dou.logtofile(logstr='logfile')
-    solve_euler_timedep(method=1, N=80, NtsList=[16])
-    solve_euler_timedep(method=1, N=80, NtsList=[32])
-    solve_euler_timedep(method=1, N=80, NtsList=[64])
-    solve_euler_timedep(method=1, N=80, NtsList=[16])
-    solve_euler_timedep(method=1, N=80, NtsList=[32])
-    solve_euler_timedep(method=1, N=80, NtsList=[64])
+    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
+                        MaxIter=85, NtsList=[12])
+    solve_euler_timedep(method=2, N=40, LinaTol=2**(-12),
+                        MaxIter=500, NtsList=[128])
+    # solve_euler_timedep(method=1, N=80, NtsList=[16])
+    # solve_euler_timedep(method=1, N=80, NtsList=[32])
+    # solve_euler_timedep(method=1, N=80, NtsList=[64])
+    # solve_euler_timedep(method=1, N=80, NtsList=[16])
+    # solve_euler_timedep(method=1, N=80, NtsList=[32])
+    # solve_euler_timedep(method=1, N=80, NtsList=[64])

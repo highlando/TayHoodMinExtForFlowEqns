@@ -92,11 +92,11 @@ def jsd_calc_l2errs(JsDict):
     contresl, velerrl, perrl = [], [], []
     for i in range(len(jsd['TimeDiscs'])):
         dx = timelength / jsd['TimeDiscs'][i]
-        contresl.append(np.trapz(jsd['ContiRes'][i], dx=dx))
-        velerrl.append(np.trapz(jsd['VelEr'][i], dx=dx))
-        perrl.append(np.trapz(jsd['PEr'][i], dx=dx))
+        contresl.append(np.sqrt(np.trapz(np.square(jsd['ContiRes'][i]),
+                        dx=dx)))
+        velerrl.append(np.sqrt(np.trapz(np.square(jsd['VelEr'][i]), dx=dx)))
+        perrl.append(np.sqrt(np.trapz(np.square(jsd['PEr'][i]), dx=dx)))
 
-    print jsd['PEr'][i]
     print 'L2 errors for method ' + jsd['TimeIntMeth']
     print 'N = ', jsd['SpaceDiscParam']
     print 'Nts = ', jsd['TimeDiscs']
