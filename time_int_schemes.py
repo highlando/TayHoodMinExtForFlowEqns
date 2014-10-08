@@ -206,7 +206,7 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     kiniv = qqpq_old + (qqpq_old - qqpq_oldold)
                 elif krylovini == 'old':
                     kiniv = qqpq_old
-                else:
+                elif krylovini == 'zero':
                     kiniv = 0*qqpq_old
 
                 q1_tq2_p_q2_new = \
@@ -233,28 +233,27 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                                q1_tq2_p_q2_new.resnorms[-1], TolCor)
                     print 'Elapsed time {0}'.format(teelapsd)
 
+            q1_old = qqpq_old[:Nv - (Np - 1), ]
+            q2_old = qqpq_old[-Npc:, ]
+
+            # Extract the 'actual' velocity and pressure
+            vc = np.zeros((Nv, 1))
+            vc[~B2BoolInv, ] = q1_old
+            vc[B2BoolInv, ] = q2_old
+            print np.linalg.norm(vc)
+
+            pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
+
+            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=Pdof)
+
+            tcur += dt
+
             if globalcount:
                 ContiRes.append(numiters)
                 VelEr.append(teelapsd)
-                PEr.append('krylovini = ' + krylovini + 
-                           '! Btw, we are counting time and iters - no errors')
+                PEr.append('inischeme: ' + krylovini)
 
             else:
-                q1_old = qqpq_old[:Nv - (Np - 1), ]
-                q2_old = qqpq_old[-Npc:, ]
-
-                # Extract the 'actual' velocity and pressure
-                vc = np.zeros((Nv, 1))
-                vc[~B2BoolInv, ] = q1_old
-                vc[B2BoolInv, ] = q2_old
-                print np.linalg.norm(vc)
-
-                pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
-
-                v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=Pdof)
-
-                tcur += dt
-
                 # the errors and residuals
                 vCur, pCur = PrP.v, PrP.p
                 vCur.t = tcur
@@ -386,11 +385,16 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
                 tstart = time.time()
 
                 # extrapolating the initial value
-                upv = (vp_old - vp_oldold)
+                if krylovini == 'upd':
+                    kiniv = vp_old + (vp_old - vp_oldold)
+                elif krylovini == 'old':
+                    kiniv = vp_old
+                elif krylovini == 'zero':
+                    kiniv = 0*vp_old
 
                 ret = krypy.linsys.Minres(curls,
                                           maxiter=TsP.MaxIter,
-                                          x0=vp_old + upv,
+                                          x0=kiniv,
                                           tol=TolCor*TsP.linatol
                                           )
                 tend = time.time()
@@ -407,20 +411,19 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
                                ret.resnorms[-1], TolCor)
                     print 'Elapsed time {0}'.format(teelapsd)
 
+            vc = vp_old[:Nv, ]
+            pc = PFacI*vp_old[Nv:, ]
+
+            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
+
+            tcur += dt
+
             if globalcount:
                 ContiRes.append(numiters)
                 VelEr.append(teelapsd)
-                PEr.append('krylovini = ' + krylovini + 
-                           '! Btw, we are counting time and iters - no errors')
+                PEr.append('inischeme: ' + krylovini)
 
             else:
-                vc = vp_old[:Nv, ]
-                pc = PFacI*vp_old[Nv:, ]
-
-                v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
-
-                tcur += dt
-
                 # the errors
                 vCur, pCur = PrP.v, PrP.p
                 vCur.t = tcur

@@ -208,7 +208,13 @@ def save_simu(TsP, PrP, globalcount=False, krylovini=None):
         PrP.N) + TsP.method + '.json'
 
     if globalcount:
-        JsFile = JsFile + '_globalcount' + '_kiniv{0}'.formulation(krylovini)
+        JsFile = JsFile + '_globalcount' + '_kiniv{0}'.format(krylovini)
+        f = open(JsFile, 'w')
+        f.write(json.dumps(DictOfVals))
+        print 'For the time/iter counts run\nimport plot_utils as ' +\
+            'plu\nplu.jsd_count_timeiters("' + JsFile + '")'
+
+        return
 
     f = open(JsFile, 'w')
     f.write(json.dumps(DictOfVals))
@@ -241,12 +247,18 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     import dolfin_navier_scipy.data_output_utils as dou
-    dou.logtofile(logstr='logfile2')
+    dou.logtofile(logstr='logfile3')
     # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
     #                     MaxIter=85, NtsList=[512])
-    solve_euler_timedep(method=2, N=10, LinaTol=2**(-12),
+    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
                         MaxIter=800, NtsList=[16, 32], globalcount=True,
                         krylovini='upd')
+    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
+                        MaxIter=800, NtsList=[16, 32], globalcount=True,
+                        krylovini='old')
+    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
+                        MaxIter=800, NtsList=[16, 32], globalcount=True,
+                        krylovini='zero')
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
