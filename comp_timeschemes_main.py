@@ -150,7 +150,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         # Output only in first iteration!
         TsP.ParaviewOutput = False
 
-    save_simu(TsP, PrP, globalcount=globalcount)
+    save_simu(TsP, PrP, globalcount=globalcount, krylovini=krylovini)
 
     return
 
@@ -187,7 +187,7 @@ def plot_exactsolution(PrP, TsP):
         p_file << pcur, tcur
 
 
-def save_simu(TsP, PrP, globalcount=False):
+def save_simu(TsP, PrP, globalcount=False, krylovini=None):
     import json
     DictOfVals = {'SpaceDiscParam': PrP.N,
                   'Omega': PrP.omega,
@@ -208,7 +208,7 @@ def save_simu(TsP, PrP, globalcount=False):
         PrP.N) + TsP.method + '.json'
 
     if globalcount:
-        JsFile = JsFile + '_globalcount'
+        JsFile = JsFile + '_globalcount' + '_kiniv{0}'.formulation(krylovini)
 
     f = open(JsFile, 'w')
     f.write(json.dumps(DictOfVals))
@@ -244,8 +244,9 @@ if __name__ == '__main__':
     dou.logtofile(logstr='logfile2')
     # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
     #                     MaxIter=85, NtsList=[512])
-    solve_euler_timedep(method=2, N=40, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=[512])
+    solve_euler_timedep(method=2, N=10, LinaTol=2**(-12),
+                        MaxIter=800, NtsList=[16, 32], globalcount=True,
+                        krylovini='upd')
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])

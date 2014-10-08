@@ -236,7 +236,8 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             if globalcount:
                 ContiRes.append(numiters)
                 VelEr.append(teelapsd)
-                PEr.append('we are counting time and iters - no errors')
+                PEr.append('krylovini = ' + krylovini + 
+                           '! Btw, we are counting time and iters - no errors')
 
             else:
                 q1_old = qqpq_old[:Nv - (Np - 1), ]
@@ -409,7 +410,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
             if globalcount:
                 ContiRes.append(numiters)
                 VelEr.append(teelapsd)
-                PEr.append('we are counting time and iters - no errors')
+                PEr.append('krylovini = ' + krylovini + 
+                           '! Btw, we are counting time and iters - no errors')
 
             else:
                 vc = vp_old[:Nv, ]
