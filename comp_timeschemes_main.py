@@ -233,11 +233,11 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     import dolfin_navier_scipy.data_output_utils as dou
-    dou.logtofile(logstr='logfile')
-    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
-                        MaxIter=85, NtsList=[12])
+    dou.logtofile(logstr='logfile2')
+    # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
+    #                     MaxIter=85, NtsList=[512])
     solve_euler_timedep(method=2, N=40, LinaTol=2**(-12),
-                        MaxIter=500, NtsList=[128])
+                        MaxIter=800, NtsList=[512])
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
