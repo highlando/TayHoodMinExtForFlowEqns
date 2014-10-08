@@ -32,7 +32,8 @@ def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc):
 
 
 def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
-                            PrP, TsP, vp_init, qqpq_init=None):
+                            PrP, TsP, vp_init, qqpq_init=None,
+                            globalcount=False, krylovini='upd'):
     """halfexplicit euler for the NSE in index 1 formulation
 
     """
@@ -199,11 +200,17 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                                  ip_B=smamin_prec_fem_ip)
 
                 tstart = time.time()
-                # extrapolating the initial value
-                qqqp_pv = (qqpq_old - qqpq_oldold)
+                # define the ini value
+                if krylovini == 'upd':
+                    # extrapolating the initial value
+                    kiniv = qqpq_old + (qqpq_old - qqpq_oldold)
+                elif krylovini == 'old':
+                    kiniv = qqpq_old
+                else:
+                    kiniv = 0*qqpq_old
 
                 q1_tq2_p_q2_new = \
-                    krypy.linsys.RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
+                    krypy.linsys.RestartedGmres(cls, x0=kiniv,
                                                 tol=TolCor*TsP.linatol,
                                                 maxiter=TsP.MaxIter,
                                                 max_restarts=8)
@@ -216,35 +223,45 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
                     savemat(dname, {'qqpq_old': qqpq_old})
 
-                print ('Needed {0} of max {1} iterations: ' +
-                       'final relres = {2}\n TolCor was {3}').\
-                    format(len(q1_tq2_p_q2_new.resnorms), TsP.MaxIter,
-                           q1_tq2_p_q2_new.resnorms[-1], TolCor)
-                print 'Elapsed time {0}'.format(tend - tstart)
+                teelapsd = tend - tstart
+                numiters = len(q1_tq2_p_q2_new.resnorms)
 
-            q1_old = qqpq_old[:Nv - (Np - 1), ]
-            q2_old = qqpq_old[-Npc:, ]
+                if not globalcount:
+                    print ('Needed {0} of max {1} iterations: ' +
+                           'final relres = {2}\n TolCor was {3}').\
+                        format(numiters, TsP.MaxIter,
+                               q1_tq2_p_q2_new.resnorms[-1], TolCor)
+                    print 'Elapsed time {0}'.format(teelapsd)
 
-            # Extract the 'actual' velocity and pressure
-            vc = np.zeros((Nv, 1))
-            vc[~B2BoolInv, ] = q1_old
-            vc[B2BoolInv, ] = q2_old
-            print np.linalg.norm(vc)
+            if globalcount:
+                ContiRes.append(numiters)
+                VelEr.append(teelapsd)
+                PEr.append('we are counting time and iters - no errors')
 
-            pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
+            else:
+                q1_old = qqpq_old[:Nv - (Np - 1), ]
+                q2_old = qqpq_old[-Npc:, ]
 
-            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=Pdof)
+                # Extract the 'actual' velocity and pressure
+                vc = np.zeros((Nv, 1))
+                vc[~B2BoolInv, ] = q1_old
+                vc[B2BoolInv, ] = q2_old
+                print np.linalg.norm(vc)
 
-            tcur += dt
+                pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
 
-            # the errors and residuals
-            vCur, pCur = PrP.v, PrP.p
-            vCur.t = tcur
-            pCur.t = tcur - dt
+                v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=Pdof)
 
-            ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
-            VelEr.append(errornorm(vCur, v))
-            PEr.append(errornorm(pCur, p))
+                tcur += dt
+
+                # the errors and residuals
+                vCur, pCur = PrP.v, PrP.p
+                vCur.t = tcur
+                pCur.t = tcur - dt
+
+                ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+                VelEr.append(errornorm(vCur, v))
+                PEr.append(errornorm(pCur, p))
             TolCorL.append(TolCor)
 
             if i + etap == 1 and TsP.SaveIniVal:
@@ -266,7 +283,8 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     return
 
 
-def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
+def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
+                          globalcount=False, krylovini='upd'):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
@@ -378,28 +396,38 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
                 vp_oldold = vp_old
                 vp_old = ret.xk
 
-                print ('Needed {0} of max {1} iterations: ' +
-                       'final relres = {2}\n TolCor was {3}').\
-                    format(len(ret.resnorms), TsP.MaxIter,
-                           ret.resnorms[-1], TolCor)
-                print 'Elapsed time {0}'.format(tend - tstart)
+                teelapsd = tend - tstart
+                numiters = len(ret.resnorms)
 
-            vc = vp_old[:Nv, ]
-            pc = PFacI*vp_old[Nv:, ]
+                if not globalcount:
+                    print ('Needed {0} of max {1} iterations: ' +
+                           'final relres = {2}\n TolCor was {3}').\
+                        format(numiters, TsP.MaxIter,
+                               ret.resnorms[-1], TolCor)
+                    print 'Elapsed time {0}'.format(teelapsd)
 
-            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
+            if globalcount:
+                ContiRes.append(numiters)
+                VelEr.append(teelapsd)
+                PEr.append('we are counting time and iters - no errors')
 
-            tcur += dt
+            else:
+                vc = vp_old[:Nv, ]
+                pc = PFacI*vp_old[Nv:, ]
 
-            # the errors
-            vCur, pCur = PrP.v, PrP.p
-            vCur.t = tcur
-            pCur.t = tcur - dt
+                v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
 
-            ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
-            VelEr.append(errornorm(vCur, v))
-            PEr.append(errornorm(pCur, p))
-            TolCorL.append(TolCor)
+                tcur += dt
+
+                # the errors
+                vCur, pCur = PrP.v, PrP.p
+                vCur.t = tcur
+                pCur.t = tcur - dt
+
+                ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
+                VelEr.append(errornorm(vCur, v))
+                PEr.append(errornorm(pCur, p))
+                TolCorL.append(TolCor)
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
 

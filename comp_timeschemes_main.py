@@ -40,7 +40,8 @@ class TimestepParams(object):
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
-                        UsePreTStps=None, SaveTStps=None, SaveIniVal=None):
+                        UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
+                        krylovini=None, globalcount=False):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -136,16 +137,20 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
         if method == 2:
             tis.halfexp_euler_nseind2(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc,
-                                      vp_init, PrP, TsP)
+                                      vp_init, PrP, TsP,
+                                      krylovini=krylovini,
+                                      globalcount=globalcount)
         elif method == 1:
             tis.halfexp_euler_smarminex(MSmeCL, BSme, MPa, FvbcSme, FpbcSme,
                                         B2BoolInv, PrP, TsP, vp_init,
-                                        qqpq_init=qqpq_init)
+                                        qqpq_init=qqpq_init,
+                                        krylovini=krylovini,
+                                        globalcount=globalcount)
 
         # Output only in first iteration!
         TsP.ParaviewOutput = False
 
-    save_simu(TsP, PrP)
+    save_simu(TsP, PrP, globalcount=globalcount)
 
     return
 
@@ -182,7 +187,7 @@ def plot_exactsolution(PrP, TsP):
         p_file << pcur, tcur
 
 
-def save_simu(TsP, PrP):
+def save_simu(TsP, PrP, globalcount=False):
     import json
     DictOfVals = {'SpaceDiscParam': PrP.N,
                   'Omega': PrP.omega,
@@ -201,6 +206,9 @@ def save_simu(TsP, PrP):
         TsP.Ntslist[0],
         TsP.Ntslist[-1],
         PrP.N) + TsP.method + '.json'
+
+    if globalcount:
+        JsFile = JsFile + '_globalcount'
 
     f = open(JsFile, 'w')
     f.write(json.dumps(DictOfVals))
