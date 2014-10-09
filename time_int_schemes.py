@@ -89,6 +89,8 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
         sps.hstack([IterASp, sps.csr_matrix((Nv + Np - 1, Np - 1))]),
         IterA3])
 
+    IterAfac = spsla.factorized(IterA)
+
     # Preconditioning ...
     #
     if TsP.SadPtPrec:
@@ -182,8 +184,10 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 TolCor = 1.0
 
             if TsP.linatol == 0:
-                q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                # q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                q1_tq2_p_q2_new = IterAfac(Iterrhs.flatten())
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
+                TolCor = 0
             else:
                 # Values from previous calculations to initialize gmres
                 if TsP.UsePreTStps:
@@ -229,7 +233,7 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             vc = np.zeros((Nv, 1))
             vc[~B2BoolInv, ] = q1_old
             vc[B2BoolInv, ] = q2_old
-            print np.linalg.norm(vc)
+            # print np.linalg.norm(vc)
 
             pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
 
@@ -294,6 +298,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     IterAv = MFac*sps.hstack([1.0 / dt*Mc, PFacI*(-1)*BTc[:, :-1]])
     IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
     IterA = sps.vstack([IterAv, IterAp])
+    IterAfac = spsla.factorized(IterA)
 
     MPc = MP[:-1, :][:, :-1]
 
@@ -351,8 +356,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
 
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
-                vp_new = spsla.spsolve(IterA, Iterrhs)
+                vp_new = IterAfac(Iterrhs.flatten())
+                # vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
+                TolCor = 0
 
             else:
                 if TsP.TolCorB:
