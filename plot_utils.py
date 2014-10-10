@@ -86,7 +86,7 @@ def jsd_plot_errs(JsDict):
     return
 
 
-def jsd_calc_l2errs(JsDict, plot=False):
+def jsd_calc_l2errs(JsDict, plot=False, ptikzfile=None):
 
     jsd = load_json_dicts(JsDict)
     timelength = jsd['TimeInterval'][1] - jsd['TimeInterval'][0]
@@ -116,4 +116,12 @@ def jsd_calc_l2errs(JsDict, plot=False):
         plt.figure()
         plt.loglog(Ntsl, contresl, '^')
         plt.title('contres')
-        plt.show(block=False)
+        if ptikzfile is None:
+            plt.show(block=False)
+    if ptikzfile is not None:
+        import matlibplots.conv_plot_utils as cpu
+        # see git@github.com:highlando/mat-lib-plots.git
+        cpu.conv_plot(1./np.array(Ntsl[:-1]), [perrl[:-1]],
+                      leglist=['perr'],
+                      markerl=['*'], fit=[-1],
+                      logscale=True, tikzfile=ptikzfile)
