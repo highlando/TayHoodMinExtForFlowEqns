@@ -155,6 +155,8 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     qqpq_oldold = qqpq_old
 
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
+    if globalcount:
+        NumIter, TimeIter  = [], []
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
@@ -240,7 +242,6 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             vc = np.zeros((Nv, 1))
             vc[~B2BoolInv, ] = q1_old
             vc[B2BoolInv, ] = q2_old
-            print np.linalg.norm(vc)
 
             pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
 
@@ -249,19 +250,18 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             tcur += dt
 
             if globalcount:
-                ContiRes.append(numiters)
-                VelEr.append(teelapsd)
+                NumIter.append(numiters)
+                TimeIter.append(teelapsd)
                 PEr.append('inischeme: ' + krylovini)
 
-            else:
-                # the errors and residuals
-                vCur, pCur = PrP.v, PrP.p
-                vCur.t = tcur
-                pCur.t = tcur - dt
+            # the errors and residuals
+            vCur, pCur = PrP.v, PrP.p
+            vCur.t = tcur
+            pCur.t = tcur - dt
 
-                ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
-                VelEr.append(errornorm(vCur, v))
-                PEr.append(errornorm(pCur, p))
+            ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+            VelEr.append(errornorm(vCur, v))
+            PEr.append(errornorm(pCur, p))
             TolCorL.append(TolCor)
 
             if i + etap == 1 and TsP.SaveIniVal:
