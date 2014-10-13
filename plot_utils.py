@@ -108,13 +108,11 @@ def jsd_calc_l2errs(JsDict):
 def jsd_count_timeiters(JsDict):
 
     jsd = load_json_dicts(JsDict)
-    iterl, timel, infol = [], [], []
+    iterl, timel = [], []
     for i in range(len(jsd['TimeDiscs'])):
-        iterl.append((np.array(jsd['ContiRes'][i])).sum())
-        timel.append((np.array(jsd['VelEr'][i])).sum())
-        infol.append(jsd['PEr'][i][0])
+        timel.append((np.array(jsd['TimeIter'][i])).sum())
+        iterl.append((np.array(jsd['NumIter'][i])).sum())
 
-    print 'infos', infol
     print 'Nts = ', jsd['TimeDiscs']
     print 'Time for iters: ', timel
     print 'Iters: ', iterl

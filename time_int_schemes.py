@@ -156,7 +156,7 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
     if globalcount:
-        NumIter, TimeIter  = [], []
+        NumIter, TimeIter = [], []
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
@@ -279,6 +279,9 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     TsP.Residuals.VelEr.append(VelEr)
     TsP.Residuals.PEr.append(PEr)
     TsP.TolCor.append(TolCorL)
+    if globalcount:
+        TsP.globalcounts.NumIter.append(NumIter)
+        TsP.globalcounts.TimeIter.append(TimeIter)
 
     return
 
@@ -318,6 +321,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
     vp_old = vp_init
     vp_oldold = vp_old
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
+    if globalcount:
+        NumIter, TimeIter = [], []
 
     # Mvp = sps.csr_matrix(sps.block_diag((Mc, MPc)))
     # Mvp = sps.eye(Mc.shape[0] + MPc.shape[0])
@@ -419,20 +424,17 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
             tcur += dt
 
             if globalcount:
-                ContiRes.append(numiters)
-                VelEr.append(teelapsd)
-                PEr.append('inischeme: ' + krylovini)
+                NumIter.append(numiters)
+                TimeIter.append(teelapsd)
 
-            else:
-                # the errors
-                vCur, pCur = PrP.v, PrP.p
-                vCur.t = tcur
-                pCur.t = tcur - dt
+            vCur, pCur = PrP.v, PrP.p
+            vCur.t = tcur
+            pCur.t = tcur - dt
 
-                ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
-                VelEr.append(errornorm(vCur, v))
-                PEr.append(errornorm(pCur, p))
-                TolCorL.append(TolCor)
+            ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
+            VelEr.append(errornorm(vCur, v))
+            PEr.append(errornorm(pCur, p))
+            TolCorL.append(TolCor)
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
 
@@ -444,6 +446,9 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
     TsP.Residuals.VelEr.append(VelEr)
     TsP.Residuals.PEr.append(PEr)
     TsP.TolCor.append(TolCorL)
+    if globalcount:
+        TsP.globalcounts.NumIter.append(NumIter)
+        TsP.globalcounts.TimeIter.append(TimeIter)
 
     return
 
