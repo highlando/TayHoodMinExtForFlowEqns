@@ -373,7 +373,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
                            CFac*fpbc[:-1, ]])
 
             if TsP.linatol == 0:
-                # ,vp_old,tol=TsP.linatol)
                 vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
 
@@ -391,7 +390,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
 
                 # extrapolating the initial value
                 if krylovini == 'upd':
-                    kiniv = vp_old + (vp_old - vp_oldold)
+                    kiniv = vp_old + (vp_old - vp_oldold)  # for equidistant
                 elif krylovini == 'old':
                     kiniv = vp_old
                 elif krylovini == 'zero':
