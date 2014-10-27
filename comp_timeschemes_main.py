@@ -261,7 +261,8 @@ if __name__ == '__main__':
     dou.logtofile(logstr='logfile4')
     # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
     #                     MaxIter=85, NtsList=[512])
-    Ntsl = [16, 32]  # , 64, 128, 256]
+    # Ntsl = [16, 32]  # , 64, 128, 256]
+    Ntsl = [512]
     method = 1
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
@@ -273,7 +274,7 @@ if __name__ == '__main__':
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='zero')
     method = 2
-    solve_euler_timedep(method=method, N=10, LinaTol=2**(-12),
+    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
                         MaxIter=800, NtsList=Ntsl, globalcount=True,
                         krylovini='upd')
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
