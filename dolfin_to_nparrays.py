@@ -93,8 +93,7 @@ def get_curfv(V, fv, invinds, tcur):
 
 
 def get_convvec(u0, V):
-	"""return the convection vector e.g. for explicit schemes
-	"""
+	"""return the convection vector e.g. for explicit schemes"""
 
 	v = TestFunction(V)
 	ConvForm = inner(grad(u0)*u0, v)*dx
@@ -106,15 +105,13 @@ def get_convvec(u0, V):
 	return ConvVec
 
 def condense_sysmatsbybcs(Ma,Aa,BTa,Ba,fv,fp,velbcs):
-	"""resolve the Dirichlet BCs and condense the sysmats
+	"""resolve the Dirichlet BCs and condense the sysmats to the inner nodes"""
 
-	to the inner nodes"""
-
-	auxu = np.zeros((len(fv),1))
+	auxu = np.zeros((len(fv),1))					# Spaltenvektor statt Zeilenvektor
 	bcinds = []
 	for bc in velbcs:
 		bcdict = bc.get_boundary_values()
-		auxu[bcdict.keys(),0] = bcdict.values()
+		auxu[bcdict.keys(),0] = bcdict.values()			# save bc values at correct pos
 		bcinds.extend(bcdict.keys())
 
 	# putting the bcs into the right hand sides
@@ -125,18 +122,12 @@ def condense_sysmatsbybcs(Ma,Aa,BTa,Ba,fv,fp,velbcs):
 	innerinds = np.setdiff1d(range(len(fv)),bcinds).astype(np.int32)
 
 	# extract the inner nodes equation coefficients
-	Mc = Ma[innerinds,:][:,innerinds]
+	Mc = Ma[innerinds,:][:,innerinds]				# NOT equal to Ma[innerinds,innerinds] !!
 	Ac = Aa[innerinds,:][:,innerinds]
 	fvbc= fvbc[innerinds,:]
 	Bc  = Ba[:,innerinds]
 	BTc = BTa[innerinds,:]
 
 	bcvals = auxu[bcinds]
-
-	# removal of the indefiniteness in pressure via pi_0 !=! 0
-	# eeeh, better not here :/
-	# Bc  = Ba[1:,innerinds]
-	# BTc = BTa[innerinds,1:]
-	# fp  = fp[1:,0]
 
 	return Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals, innerinds
