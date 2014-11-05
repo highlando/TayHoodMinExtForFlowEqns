@@ -40,6 +40,7 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
     elif scheme == 'CR':
         dname = 'SmeMcBc_N{0}_CR'.format(N)
         # ??? ist pressure-DoF von B_matrix schon entfernt ??? 
+        # ATTENTION: CR needs in addition the B matrix (this could be changed)
         get_b2inds_rtn = get_B2_CRinds
 
     try:
