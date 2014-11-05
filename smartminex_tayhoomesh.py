@@ -1,5 +1,6 @@
 import numpy as np
 from dolfin import Mesh, cells
+import numpy.linalg as npla
 
 
 def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
@@ -37,11 +38,13 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
     if scheme == 'TH':
         dname = 'SmeMcBc_N{0}_TH'.format(N)
         get_b2inds_rtn = get_B2_bubbleinds
+        args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
     elif scheme == 'CR':
         dname = 'SmeMcBc_N{0}_CR'.format(N)
-        # ??? ist pressure-DoF von B_matrix schon entfernt ??? 
+        # ??? ist pressure-DoF von B_matrix schon entfernt ???
         # ATTENTION: CR needs in addition the B matrix (this could be changed)
         get_b2inds_rtn = get_B2_CRinds
+        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, B_matrix=Bc)
 
     try:
         SmDic = loadmat(dname)
@@ -49,7 +52,7 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
     except IOError:
         print 'Computing the B2 indices...'
         # get the indices of the B2-part
-        B2Inds = get_b2inds_rtn(N, PrP.V, PrP.mesh)
+        B2Inds = get_b2inds_rtn(**args)
         # the B2 inds wrt to inner nodes
         # this gives a masked array of boolean type
         B2BoolInv = np.in1d(np.arange(PrP.V.dim())[PrP.invinds], B2Inds)
@@ -402,13 +405,13 @@ def computeSmartMinExtMapping(V, mesh):
     return E
 
 
-def get_B2_CRinds(N, V, mesh, Q=None, B_matrix):
+def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None):
     """compute the indices of dofs that set up
     the invertible B2. This function is specific for CR elements."""
 
     # mesh doesnt matter - can be any mesh
-    # V = VectorFunctionSpace(mesh, "CR", 1)   
-    # koennte man vermutlich auch eleganter ohne die Uebergabe der B Matrix machen
+    # V = VectorFunctionSpace(mesh, "CR", 1)
+    # koennte man vermutlich auch eleganter ohne die B Matrix machen
 
     # apply algorithm from Preprint
     edges_V2 = computeSmartMinExtMapping(V, mesh)
@@ -420,12 +423,13 @@ def get_B2_CRinds(N, V, mesh, Q=None, B_matrix):
     DoF_for_V2_y = DoF_for_V2[:, 1]
     # we still have do decide which of the two basis functions
     # corresponding to the edge we take. Here, we take as default
-    # [phi_E; 0] if not div[phi_E; 0] = 0  - This we check via the norm of the col in B    
+    # [phi_E; 0] if not div[phi_E; 0] = 0  
+    # - This we check via the norm of the col in B    
     dof_for_regular_B2 = DoF_for_V2_x
     for i in np.arange(len(edges_V2)):
         # take x-DoF and test whether its a zero-column
         dof = DoF_for_V2_x[i]
-        col = Ba[:, dof]
+        col = B_matrix[:, dof]
         if npla.norm(col.toarray(), np.inf) < 1e-13:
             # norm to small -> seems to be a zero-column
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
