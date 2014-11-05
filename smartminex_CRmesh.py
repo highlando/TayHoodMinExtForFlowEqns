@@ -1,6 +1,10 @@
 import numpy as np
 from dolfin import Mesh, cells
 
+
+## Ich denke die gaxze Datei kann weg, da es nun mit im 'tayhoomesh' mit dabei ist
+
+
 def get_smamin_rearrangement(N,PrP,Mc,Bc):
 	from smamin_utils import col_columns_atend
 	from scipy.io import loadmat, savemat

@@ -39,7 +39,8 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
         get_b2inds_rtn = get_B2_bubbleinds
     elif scheme == 'CR':
         dname = 'SmeMcBc_N{0}_CR'.format(N)
-        get_b2inds_rtn = 'here comes Robert'
+        # ??? ist pressure-DoF von B_matrix schon entfernt ??? 
+        get_b2inds_rtn = get_B2_CRinds
 
     try:
         SmDic = loadmat(dname)
@@ -268,3 +269,165 @@ def get_B2_bubbleinds(N, V, mesh, Q=None):
             VelBubsChoice = np.append(VelBubsChoice, ClusCont)
 
     return VelBubsChoice.astype(int)
+
+
+# some helpful functions
+
+# returns an array which couples the index of an edge with
+# the DoFs of the velocity
+#  edgeCRDofArray[edge_index] = [dof_index1, dof_index2]
+#  scheinen aber doch sortiert zu sein: edgeCRDofArray[i] = [2i, 2i+1]
+def computeEdgeCRDofArray(V, mesh):
+    # dof map, dim_V = 2 * num_E
+    num_E = mesh.num_facets()
+    dofmap = V.dofmap()
+    edgeCRDofArray = np.zeros((num_E, 2))
+
+    # loop over cells and fill array
+    for cell in cells(mesh):
+        # list of dof-indices for edges of the cell
+        dofs = dofmap.cell_dofs(cell.index())
+        for i, facet in enumerate(facets(cell)):
+            # print 'cell: %3g  ||  i: %3g   || facet: %3g' % (cell.index(), i, facet.index())
+            # corresponding DoFs (2 basisfct per edge)
+            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i] + 1]  
+            # every interior edge visited twice but EGAL!
+    return edgeCRDofArray
+
+
+# finds all adjacent cells
+# given a cell and a mesh, it returns the indices of all cells which share
+# a common edge with the given cell
+def findAdjacentCellInd(cell, mesh):
+    adj_cells = []
+    D = mesh.topology().dim()
+    # Build connectivity between facets and cells
+    mesh.init(D - 1, D) 
+    # loop over edges
+    for facet in facets(cell):
+        # find all cells with edge facet
+        # print facet.entities(D)
+        adj_cells = np.append(adj_cells, facet.entities(D))
+
+    # delete doubles and the cell itself
+    adj_cells = np.unique(adj_cells)    
+    adj_cells = adj_cells[adj_cells != cell.index()]
+
+    return adj_cells
+
+
+# returns common edge of two cells
+# given two Cell objects, it searches for the common edge
+# returns the Facet object
+def commonEdge(cell1, cell2, mesh):
+    facets1 = facets(cell1)
+    facets2 = facets(cell2)
+
+    # find common index
+    ind_fac1 = []
+    for facet in facets1:
+        ind_fac1 = np.append(ind_fac1, facet.index())
+    ind_fac2 = []
+    for facet in facets2:
+        ind_fac2 = np.append(ind_fac2, facet.index())
+
+    # intersect gives index
+    index = np.intersect1d(ind_fac1, ind_fac2)
+
+    return Facet(mesh, int(index[0]))
+
+
+# returns common edge of two cells (index-version)
+# given two cells in terms of the index, it searches for the common edge
+# returns the index of the facet
+def commonEdgeInd(cell1_ind, cell2_ind, mesh):
+    cell1 = Cell(mesh, cell1_ind)
+    cell2 = Cell(mesh, cell2_ind)
+
+    return commonEdge(cell1, cell2, mesh).index()
+
+
+# returns the edges corresponding to V_{2,h} as in the Preprint
+#  performs Algorithm 1
+#  define mapping iota: cells -> interior edges
+def computeSmartMinExtMapping(V, mesh):
+    nr_cells = mesh.num_cells()
+    # T_0 = triangle with sell-index 0
+    # list of remaining triangles
+    R = np.arange(nr_cells)
+    R = R[1:mesh.num_cells()]
+    # list of already visited triangles and selected edges
+    T_minus_R = [0]
+    E = []
+    # indox of 'last' triangle
+    last_T = 0
+
+    # loop until to triangles are left
+    print 'Enter while loop'
+    while (len(R) > 0):
+        # find adjacent triangle of last_T
+        adj_cells_last_T = findAdjacentCellInd(Cell(mesh, last_T), mesh)
+        # only adjacent cells which are also in R
+        adm_adj_cells = np.intersect1d(adj_cells_last_T, R)
+
+        # it can happen that there is no neoghboring triangle in R
+        # then we have to reset last_T
+        if len(adm_adj_cells) < 1:
+            print ' - Couldnt find adjacent triangles. Have to reset last_T.'
+            found_new_triangle = 0
+            counter = 0
+            while not found_new_triangle:
+                test_T = T_minus_R[counter]
+                adj_cells_test_T = findAdjacentCellInd(Cell(mesh, test_T), mesh)
+                # print np.intersect1d(adj_cells_test_T, R)
+                if len(np.intersect1d(adj_cells_test_T, R)) > 0:
+                    print ' - - YES! I found a new triangle.'
+                    found_new_triangle = 1
+                    last_T = test_T
+                    adm_adj_cells = np.intersect1d(adj_cells_test_T, R)
+                counter = counter + 1
+
+        # if there exists at least one admissible neighbor: get common edge
+        new_T = int(adm_adj_cells[0])
+        print 'old Tri %3g and new found Tri %3g' % (last_T, new_T)
+        R = R[R != new_T]
+        T_minus_R = np.append(T_minus_R, new_T)
+        comm_edge = commonEdgeInd(last_T, new_T, mesh)
+        # update range(iota), i.e., list of edges
+        E = np.append(E, comm_edge)
+        # update last visited triangle
+        last_T = new_T
+
+    return E
+
+
+def get_B2_CRinds(N, V, mesh, Q=None, B_matrix):
+    """compute the indices of dofs that set up
+    the invertible B2. This function is specific for CR elements."""
+
+    # mesh doesnt matter - can be any mesh
+    # V = VectorFunctionSpace(mesh, "CR", 1)   
+    # koennte man vermutlich auch eleganter ohne die Uebergabe der B Matrix machen
+
+    # apply algorithm from Preprint
+    edges_V2 = computeSmartMinExtMapping(V, mesh)
+    # get corresponding degrees of freedom of the CR-scheme
+    print 'corresponding DoF for CR'
+    edgeCRDofArray = computeEdgeCRDofArray(V, mesh)
+    DoF_for_V2 = edgeCRDofArray[edges_V2.astype(int)].astype(int)
+    DoF_for_V2_x = DoF_for_V2[:, 0]
+    DoF_for_V2_y = DoF_for_V2[:, 1]
+    # we still have do decide which of the two basis functions
+    # corresponding to the edge we take. Here, we take as default
+    # [phi_E; 0] if not div[phi_E; 0] = 0  - This we check via the norm of the col in B    
+    dof_for_regular_B2 = DoF_for_V2_x
+    for i in np.arange(len(edges_V2)):
+        # take x-DoF and test whether its a zero-column
+        dof = DoF_for_V2_x[i]
+        col = Ba[:, dof]
+        if npla.norm(col.toarray(), np.inf) < 1e-13:
+            # norm to small -> seems to be a zero-column
+            dof_for_regular_B2[i] = DoF_for_V2_y[i]
+
+    return dof_for_regular_B2
+    
