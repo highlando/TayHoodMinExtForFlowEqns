@@ -13,47 +13,6 @@ dolfin.parameters.linear_algebra_backend = "uBLAS"
 # # # # # # # # # # # # # # #
 
 
-# problem = LinearVariationalProblem(a, L, u, bc)
-# solver = LinearVariationalSolver(problem)
-# solver.parameters["linear_solver"] = "cg"
-# solver.parameters["preconditioner"] = "ilu"
-# cg_prm = solver.parameters["krylov_solver"]
-# cg_prm["absolute_tolerance"] = 1E-7
-# cg_prm["relative_tolerance"] = 1E-4
-# cg_prm["maximum_iterations"] = 150
-# solver.solve()
-
-
-# Ausgabe der Koordinaten
-# coord = mesh.coordinates()
-# if mesh.num_vertices() == len(u_array):
-#   for i in range(mesh.num_vertices()):
-# print 'Koordinate (%3g, %3g) mit Wert %6g' % (coord[i][0], coord[i][1],
-# u_array[i])
-
-# Manipulate Data
-# max_val = u_array.max()
-# u_array /= max_val
-# u.vector()[:] = u_array
-
-# Berechnung von Integralen/Energien
-# energy = 0.5*inner(grad(u), grad(u))*dx
-# E = assemble(energy)
-
-# bc.apply(A, b)						# (unsymmetric) modifications due to bc
-
-# FEniCS for nonlinear problems (Newton iteration, page 44)
-# u = TrialFunction(V)
-# v = TestFunction(V)
-# F = innner(q(u)*nabla_grad(u), grad_nabla(v))*dx
-# u_ = Function(V)					# Loesung im aktuellen Newton schritt
-# F = action(F, u_)					# equals F(u=u_ ;v)
-# du = TrialFunction(V)
-# J = inner(q(u_)*nabla_grad(du), ...			# Jacobian
-# J = derivative(F, u_, du)				# Dateaux derivative in direction of du
-# problem = NonlinearVariationalProblem(F, u_, bcs, J)
-
-
 # Function to solve the Stokes/Euler equations
 #
 def solve_stokesTimeDep(method=None, Omega=None, tE=None,
