@@ -41,8 +41,7 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
     elif scheme == 'CR':
         dname = 'SmeMcBc_N{0}_CR'.format(N)
-        # ??? ist pressure-DoF von B_matrix schon entfernt ???
-        # ATTENTION: CR needs in addition the B matrix (this could be changed)
+        # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh, B_matrix=Bc)
 
@@ -275,7 +274,7 @@ def get_B2_bubbleinds(N, V, mesh, Q=None):
     return VelBubsChoice.astype(int)
 
 
-# some helpful functions
+# some helpful functions for CR
 
 # returns an array which couples the index of an edge with
 # the DoFs of the velocity
@@ -424,15 +423,14 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None):
     # we still have do decide which of the two basis functions
     # corresponding to the edge we take. Here, we take as default
     # [phi_E; 0] if not div[phi_E; 0] = 0  
-    # - This we check via the norm of the col in B    
+    # - This we check via the norm of the column in B    
     dof_for_regular_B2 = DoF_for_V2_x
     for i in np.arange(len(edges_V2)):
         # take x-DoF and test whether its a zero-column
         dof = DoF_for_V2_x[i]
-        col = B_matrix[:, dof]
-        if npla.norm(col.toarray(), np.inf) < 1e-13:
-            # norm to small -> seems to be a zero-column
+        col = B_matrix[:, dof]								# Problem, dass erster Eintrag noch da?? vmtl nein
+        if npla.norm(col.toarray(), np.inf) < 1e-14:
+            # norm to small --> seems to be a zero-column, i.e., divergence vanishes
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
-    return dof_for_regular_B2
-    
+    return dof_for_regular_B2    
