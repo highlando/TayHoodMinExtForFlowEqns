@@ -31,9 +31,9 @@ def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc):
         mass_fem_ip(qqpq1[-Npc:, ], qqpq2[-Npc:, ], Mp)
 
 
-def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
+def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
                             PrP, TsP, vp_init, qqpq_init=None):
-    """halfexplicit euler for the NSE in index 1 formulation
+    """ halfexplicit euler for the NSE in index 1 formulation
 
     """
 
@@ -42,15 +42,6 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     tcur = t0
 
     Npc = Np - 1
-
-    # remove the p - freedom
-    if Pdof == 0:
-        BSme = BSme[1:, :]
-        FpbcSmeC = FpbcSme[1:, ]
-        MPc = MP[1:, :][:, 1:]
-    else:
-        BSme = sps.vstack([BSme[:Pdof, :], BSme[Pdof+1:, :]])
-        raise Warning('TODO: Implement this')
 
     B1Sme = BSme[:, :Nv - (Np - 1)]
     B2Sme = BSme[:, Nv - (Np - 1):]

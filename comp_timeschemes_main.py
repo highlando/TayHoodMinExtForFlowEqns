@@ -234,10 +234,10 @@ class UpFiles(object):
             self.p_file = dolfin.File("results/pressure.pvd")
 
 if __name__ == '__main__':
-    import dolfin_navier_scipy.data_output_utils as dou
-    dou.logtofile(logstr='logfile3')
-    solve_euler_timedep(method=2, N=100, tE=1.0, LinaTol=0,  # 2**(-12),
-                        MaxIter=85, NtsList=[16, 23, 32, 45, 64, 91, 128])
+    # import dolfin_navier_scipy.data_output_utils as dou
+    # dou.logtofile(logstr='logfile3')
+    solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
+                        MaxIter=85, NtsList=[16, 23, 32])  # , 45, 64,91, 128])
     # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
     #                     MaxIter=800, NtsList=[512])
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
