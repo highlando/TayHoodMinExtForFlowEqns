@@ -2,7 +2,7 @@ from dolfin import errornorm, TrialFunction, Function, assemble, div, dx, norm
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
-import krypy.linsys
+# import krypy.linsys
 from scipy.io import loadmat
 
 import dolfin_to_nparrays as dtn
