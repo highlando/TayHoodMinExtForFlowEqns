@@ -37,7 +37,7 @@ except NameError:
     pass  # no krypy -- I hope we don't need it
 
 
-def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
+def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                             PrP, TsP, vp_init, qqpq_init=None):
     """ halfexplicit euler for the NSE in index 1 formulation
 
@@ -46,11 +46,16 @@ def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
     N, Pdof = PrP.N, PrP.Pdof
     Nts, t0, tE, dt, Nv, Np = init_time_stepping(PrP, TsP)
     tcur = t0
+    # remove the p - freedom
+    if Pdof == 0:
+        BSme = BSme[1:, :]
+        FpbcSmeC = FpbcSme[1:, ]
+        MPc = MP[1:, :][:, 1:]
+    else:
+        BSme = sps.vstack([BSme[:Pdof, :], BSme[Pdof+1:, :]])
+        raise Warning('TODO: Implement this')
 
     Npc = Np - 1
-    FpbcSme = FpbcSmeC[1:, ]
-    BSme = BSme[1:, :][:, :]
-    MPc = MPc[1:, :][:, 1:]
 
     B1Sme = BSme[:, :Nv - (Np - 1)]
     B2Sme = BSme[:, Nv - (Np - 1):]
@@ -169,20 +174,6 @@ def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
                 np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
             Iterrhs = np.vstack([Iterrhs, FpbcSmeC])
 
-            # Norm of rhs of index-1 formulation
-            if TsP.TolCorB:
-                raise Warning('TODO: debug')
-                NormRhsInd1 = np.sqrt(
-                    smamin_fem_ip(Iterrhs,
-                                  Iterrhs,
-                                  MSme,
-                                  MPc,
-                                  Nv,
-                                  Npc))[0][0]
-                TolCor = 1.0 / np.max([NormRhsInd1, 1])
-
-            else:
-                TolCor = 1.0
 
             if TsP.linatol == 0:
                 # q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
@@ -190,7 +181,20 @@ def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                 TolCor = 0
             else:
-                # Values from previous calculations to initialize gmres
+                # Norm of rhs of index-1 formulation
+                if TsP.TolCorB:
+                    NormRhsInd1 = np.sqrt(
+                        smamin_fem_ip(Iterrhs,
+                                      Iterrhs,
+                                      MSme,
+                                      MPc,
+                                      Nv,
+                                      Npc))[0][0]
+                    TolCor = 1.0 / np.max([NormRhsInd1, 1])
+
+                else:
+                    TolCor = 1.0
+                    # Values from previous calculations to initialize gmres
                 if TsP.UsePreTStps:
                     dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
                     try:

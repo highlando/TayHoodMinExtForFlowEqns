@@ -248,6 +248,6 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
-    solve_euler_timedep(method=1, N=20, LinaTol=0, NtsList=[16])
+    solve_euler_timedep(method=1, N=20, LinaTol=1e-4, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
