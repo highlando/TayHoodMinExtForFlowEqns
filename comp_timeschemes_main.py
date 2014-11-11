@@ -104,6 +104,11 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
         PrP.Pdof = 0  # Thats how the smamin is constructed
 
+        # # Fixing the p
+        # FpbcSme = FpbcSme[1:, ]
+        # BSme = BSme[1:, :][:, :]
+        # MPa = MPa[1:, :][:, 1:]
+
         # inivalue
         dname = 'IniValSmaMinN%s' % N
         try:
@@ -243,6 +248,6 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
-    solve_euler_timedep(method=1, N=20, NtsList=[16])
+    solve_euler_timedep(method=1, N=20, LinaTol=0, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])

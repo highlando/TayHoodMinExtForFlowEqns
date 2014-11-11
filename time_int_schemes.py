@@ -2,33 +2,39 @@ from dolfin import errornorm, TrialFunction, Function, assemble, div, dx, norm
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
-# import krypy.linsys
 from scipy.io import loadmat
 
 import dolfin_to_nparrays as dtn
 import time
 
+try:
+    import krypy.linsys
+except ImportError:
+    pass  # No krypy -- I hope we don't need it
 #
 # solve M\dot v + K(v) -B'p = fv
 #                 Bv      = fpbc
 #
 
 
-def mass_fem_ip(q1, q2, M):
-    """M^-1 inner product
+try:
+    def mass_fem_ip(q1, q2, M):
+        """M^-1 inner product
 
-    """
-    ls = krypy.linsys.LinearSystem(M, q2, self_adjoint=True)
-    return np.dot(q1.T.conj(), (krypy.linsys.Cg(ls, tol=1e-12)).xk)
+        """
+        ls = krypy.linsys.LinearSystem(M, q2, self_adjoint=True)
+        return np.dot(q1.T.conj(), (krypy.linsys.Cg(ls, tol=1e-12)).xk)
 
 
-def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc):
-    """ M^-1 ip for the extended system
+    def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc):
+        """ M^-1 ip for the extended system
 
-    """
-    return mass_fem_ip(qqpq1[:Nv, ], qqpq2[:Nv, ], Mv) + \
-        mass_fem_ip(qqpq1[Nv:-Npc, ], qqpq2[Nv:-Npc, ], Mp) + \
-        mass_fem_ip(qqpq1[-Npc:, ], qqpq2[-Npc:, ], Mp)
+        """
+        return mass_fem_ip(qqpq1[:Nv, ], qqpq2[:Nv, ], Mv) + \
+            mass_fem_ip(qqpq1[Nv:-Npc, ], qqpq2[Nv:-Npc, ], Mp) + \
+            mass_fem_ip(qqpq1[-Npc:, ], qqpq2[-Npc:, ], Mp)
+except NameError:
+    pass  # no krypy -- I hope we don't need it
 
 
 def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
@@ -42,6 +48,9 @@ def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
     tcur = t0
 
     Npc = Np - 1
+    FpbcSme = FpbcSmeC[1:, ]
+    BSme = BSme[1:, :][:, :]
+    MPc = MPc[1:, :][:, 1:]
 
     B1Sme = BSme[:, :Nv - (Np - 1)]
     B2Sme = BSme[:, Nv - (Np - 1):]
@@ -162,6 +171,7 @@ def halfexp_euler_smarminex(MSme, BSme, MPc, FvbcSme, FpbcSmeC, B2BoolInv,
 
             # Norm of rhs of index-1 formulation
             if TsP.TolCorB:
+                raise Warning('TODO: debug')
                 NormRhsInd1 = np.sqrt(
                     smamin_fem_ip(Iterrhs,
                                   Iterrhs,
@@ -347,8 +357,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
 
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
-                vp_new = IterAfac(Iterrhs.flatten())
-                # vp_new = spsla.spsolve(IterA, Iterrhs)
+                # vp_new = IterAfac(Iterrhs.flatten())
+                vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
                 TolCor = 0
 
