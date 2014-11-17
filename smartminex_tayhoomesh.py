@@ -1,5 +1,5 @@
 import numpy as np
-from dolfin import Mesh, cells
+from dolfin import Mesh, cells, Cell, facets, Facet
 import numpy.linalg as npla
 
 
@@ -36,14 +36,17 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
     """
 
     if scheme == 'TH':
+        print 'solving index 1 -- with TH scheme'
         dname = 'SmeMcBc_N{0}_TH'.format(N)
         get_b2inds_rtn = get_B2_bubbleinds
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
     elif scheme == 'CR':
+        print 'solving index 1 -- with CR scheme'
         dname = 'SmeMcBc_N{0}_CR'.format(N)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
-        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, B_matrix=Bc)
+        args = dict(N=N, V=PrP.V, mesh=PrP.mesh,
+                    B_matrix=Bc, invinds=PrP.invinds)
 
     try:
         SmDic = loadmat(dname)
@@ -291,9 +294,10 @@ def computeEdgeCRDofArray(V, mesh):
         # list of dof-indices for edges of the cell
         dofs = dofmap.cell_dofs(cell.index())
         for i, facet in enumerate(facets(cell)):
-            # print 'cell: %3g  ||  i: %3g   || facet: %3g' % (cell.index(), i, facet.index())
+            # print 'cell: %3g  ||  i: %3g   ||
+            # facet: %3g' % (cell.index(), i, facet.index())
             # corresponding DoFs (2 basisfct per edge)
-            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i] + 1]  
+            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i] + 1]
             # every interior edge visited twice but EGAL!
     return edgeCRDofArray
 
@@ -305,7 +309,7 @@ def findAdjacentCellInd(cell, mesh):
     adj_cells = []
     D = mesh.topology().dim()
     # Build connectivity between facets and cells
-    mesh.init(D - 1, D) 
+    mesh.init(D - 1, D)
     # loop over edges
     for facet in facets(cell):
         # find all cells with edge facet
@@ -313,7 +317,7 @@ def findAdjacentCellInd(cell, mesh):
         adj_cells = np.append(adj_cells, facet.entities(D))
 
     # delete doubles and the cell itself
-    adj_cells = np.unique(adj_cells)    
+    adj_cells = np.unique(adj_cells)
     adj_cells = adj_cells[adj_cells != cell.index()]
 
     return adj_cells
@@ -381,7 +385,8 @@ def computeSmartMinExtMapping(V, mesh):
             counter = 0
             while not found_new_triangle:
                 test_T = T_minus_R[counter]
-                adj_cells_test_T = findAdjacentCellInd(Cell(mesh, test_T), mesh)
+                adj_cells_test_T = findAdjacentCellInd(Cell(mesh, test_T),
+                                                       mesh)
                 # print np.intersect1d(adj_cells_test_T, R)
                 if len(np.intersect1d(adj_cells_test_T, R)) > 0:
                     print ' - - YES! I found a new triangle.'
@@ -404,7 +409,7 @@ def computeSmartMinExtMapping(V, mesh):
     return E
 
 
-def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None):
+def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
     """compute the indices of dofs that set up
     the invertible B2. This function is specific for CR elements."""
 
@@ -419,18 +424,27 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None):
     edgeCRDofArray = computeEdgeCRDofArray(V, mesh)
     DoF_for_V2 = edgeCRDofArray[edges_V2.astype(int)].astype(int)
     DoF_for_V2_x = DoF_for_V2[:, 0]
+    # this as indices
+    # B2BI = np.arange(len(B2BoolInv), dtype=np.int32)[B2BoolInv]
+
     DoF_for_V2_y = DoF_for_V2[:, 1]
     # we still have do decide which of the two basis functions
     # corresponding to the edge we take. Here, we take as default
-    # [phi_E; 0] if not div[phi_E; 0] = 0  
-    # - This we check via the norm of the column in B    
+    # [phi_E; 0] if not div[phi_E; 0] = 0
+    # - This we check via the norm of the column in B
     dof_for_regular_B2 = DoF_for_V2_x
+    def new_index(dof):
+
+        
+    raise Warning('TODO: debug')
     for i in np.arange(len(edges_V2)):
         # take x-DoF and test whether its a zero-column
-        dof = DoF_for_V2_x[i]
-        col = B_matrix[:, dof]								# Problem, dass erster Eintrag noch da?? vmtl nein
+        dof = new_index(DoF_for_V2_x[i])
+        col = B_matrix[:, dof]
+        # Problem, dass erster Eintrag noch da?? vmtl nein
         if npla.norm(col.toarray(), np.inf) < 1e-14:
-            # norm to small --> seems to be a zero-column, i.e., divergence vanishes
+            # norm to small --> seems to be a zero-column,
+            # i.e., divergence vanishes
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
-    return dof_for_regular_B2    
+    return dof_for_regular_B2

@@ -10,8 +10,8 @@ def setget_velbcs_zerosq(mesh, V):
     # Boundaries
     def top(x, on_boundary):
         return np.fabs(x[1] - 1.0) < dolfin.DOLFIN_EPS
-                  # and (np.fabs(x[0]) > DOLFIN_EPS))
-                  # and np.fabs(x[0] - 1.0) > DOLFIN_EPS )
+        # and (np.fabs(x[0]) > DOLFIN_EPS))
+        # and np.fabs(x[0] - 1.0) > DOLFIN_EPS )
 
     def leftbotright(x, on_boundary):
         return (np.fabs(x[0] - 1.0) < dolfin.DOLFIN_EPS
@@ -63,12 +63,16 @@ def comp_symb_nserhs(u=None, v=None, p=None, nu=None):
 
 class ProbParams(object):
 
-    def __init__(self, N, omega=None, nu=None):
+    def __init__(self, N, omega=None, nu=None, scheme='TH'):
 
         self.mesh = smartminex_tayhoomesh.getmake_mesh(N)
         self.N = N
-        self.V = dolfin.VectorFunctionSpace(self.mesh, "CG", 2)
-        self.Q = dolfin.FunctionSpace(self.mesh, "CG", 1)
+        if scheme == 'TH':
+            self.V = dolfin.VectorFunctionSpace(self.mesh, "CG", 2)
+            self.Q = dolfin.FunctionSpace(self.mesh, "CG", 1)
+        elif scheme == 'CR':
+            self.V = dolfin.VectorFunctionSpace(self.mesh, "CR", 1)
+            self.Q = dolfin.FunctionSpace(self.mesh, "DG", 0)
         self.velbcs = setget_velbcs_zerosq(self.mesh, self.V)
         self.Pdof = 0  # dof removed in the p approximation
         self.omega = omega

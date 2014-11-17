@@ -26,7 +26,7 @@ class TimestepParams(object):
         self.SadPtPrec = True
         self.UpFiles = UpFiles(method)
         self.Residuals = NseResiduals()
-        self.linatol = 0 # 1e-4  # 0 for direct sparse solver
+        self.linatol = 0  # 1e-4  # 0 for direct sparse solver
         self.TolCor = []
         self.MaxIter = 85
         self.Ml = None  # preconditioners
@@ -40,7 +40,8 @@ class TimestepParams(object):
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
-                        UsePreTStps=None, SaveTStps=None, SaveIniVal=None):
+                        UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
+                        scheme='TH'):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -54,7 +55,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
-    PrP = ProbParams(N, omega=Omega, nu=0)
+    PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N)
 
@@ -97,7 +98,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         from scipy.io import loadmat
 
         MSmeCL, BSme, B2Inds, B2BoolInv, B2BI = smartminex_tayhoomesh.\
-            get_smamin_rearrangement(N, PrP, Mc, Bc)
+            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
@@ -239,16 +240,18 @@ class UpFiles(object):
             self.p_file = dolfin.File("results/pressure.pvd")
 
 if __name__ == '__main__':
+    scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
- #   solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
- #                       MaxIter=85, NtsList=[16, 23, 32])  # , 45, 64,91, 128])
+    # solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
+    #                       MaxIter=85, NtsList=[16, 23, 32])
+    # , 45, 64,91, 128])
     # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
     #                     MaxIter=800, NtsList=[512])
     # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
     # solve_euler_timedep(method=1, N=20, NtsList=[16])
-    solve_euler_timedep(method=1, N=20, LinaTol=1e-4, NtsList=[16])
+    solve_euler_timedep(method=1, N=10, LinaTol=0, NtsList=[16], scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
