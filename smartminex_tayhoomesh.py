@@ -433,13 +433,12 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
     # [phi_E; 0] if not div[phi_E; 0] = 0
     # - This we check via the norm of the column in B
     dof_for_regular_B2 = DoF_for_V2_x
-    def new_index(dof):
 
-        
-    raise Warning('TODO: debug')
+    lut = dict(zip(invinds.tolist(), range(invinds.size)))
+
     for i in np.arange(len(edges_V2)):
         # take x-DoF and test whether its a zero-column
-        dof = new_index(DoF_for_V2_x[i])
+        dof = lut[DoF_for_V2_x[i]]
         col = B_matrix[:, dof]
         # Problem, dass erster Eintrag noch da?? vmtl nein
         if npla.norm(col.toarray(), np.inf) < 1e-14:
