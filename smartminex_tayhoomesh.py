@@ -85,6 +85,13 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
     B2BoolInv = SmDic['B2BoolInv'] > 0
     B2BoolInv = B2BoolInv.flatten()
     B2BI = SmDic['B2BI']
+    check_cond = True
+    if check_cond:
+        import sys
+        B2 = BSme[-B2Inds.size:, :]
+        print 'condition number is ', npla.cond(B2.todense())
+        print 'N is ', N
+        sys.exit('done')
 
     return MSmeCL, BSme, B2Inds, B2BoolInv, B2BI
 
@@ -438,12 +445,19 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
 
     for i in np.arange(len(edges_V2)):
         # take x-DoF and test whether its a zero-column
-        dof = lut[DoF_for_V2_x[i]]
-        col = B_matrix[:, dof]
-        # Problem, dass erster Eintrag noch da?? vmtl nein
-        if npla.norm(col.toarray(), np.inf) < 1e-14:
-            # norm to small --> seems to be a zero-column,
-            # i.e., divergence vanishes
+        xdof = lut[DoF_for_V2_x[i]]
+        ydof = lut[DoF_for_V2_y[i]]
+        colx = B_matrix[:, xdof]
+        coly = B_matrix[:, ydof]
+        # raise Warning('TODO: debug')
+        if abs(coly[i+1, 0]) > abs(colx[i+1, 0]):
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
+
+        # # Problem, dass erster Eintrag noch da?? vmtl nein
+        #
+        # if npla.norm(col.toarray(), np.inf) < 1e-14:
+        #     # norm to small --> seems to be a zero-column,
+        #     # i.e., divergence vanishes
+        #     dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
     return dof_for_regular_B2

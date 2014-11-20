@@ -65,12 +65,13 @@ class ProbParams(object):
 
     def __init__(self, N, omega=None, nu=None, scheme='TH'):
 
-        self.mesh = smartminex_tayhoomesh.getmake_mesh(N)
         self.N = N
         if scheme == 'TH':
+            self.mesh = smartminex_tayhoomesh.getmake_mesh(N)
             self.V = dolfin.VectorFunctionSpace(self.mesh, "CG", 2)
             self.Q = dolfin.FunctionSpace(self.mesh, "CG", 1)
         elif scheme == 'CR':
+            self.mesh = dolfin.UnitSquareMesh(N, N)
             self.V = dolfin.VectorFunctionSpace(self.mesh, "CR", 1)
             self.Q = dolfin.FunctionSpace(self.mesh, "DG", 0)
         self.velbcs = setget_velbcs_zerosq(self.mesh, self.V)
