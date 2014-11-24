@@ -3,7 +3,7 @@ from dolfin import Mesh, cells, Cell, facets, Facet
 import numpy.linalg as npla
 
 
-def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
+def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
     from smamin_utils import col_columns_atend
     from scipy.io import loadmat, savemat
     """ rearrange `B` and `M` for smart minimal extension
@@ -45,7 +45,7 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
         dname = 'SmeMcBc_N{0}_CR'.format(N)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
-        args = dict(N=N, V=PrP.V, mesh=PrP.mesh,
+        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q,
                     B_matrix=Bc, invinds=PrP.invinds)
 
     try:
@@ -85,13 +85,28 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH'):
     B2BoolInv = SmDic['B2BoolInv'] > 0
     B2BoolInv = B2BoolInv.flatten()
     B2BI = SmDic['B2BI']
-    check_cond = True
-    if check_cond:
-        import sys
-        B2 = BSme[-B2Inds.size:, :]
+    only_check_cond = True
+    if only_check_cond:
+        B2 = BSme[1:, :][:, -B2Inds.size:]
         print 'condition number is ', npla.cond(B2.todense())
         print 'N is ', N
-        sys.exit('done')
+        import matplotlib.pylab as pl
+        pl.spy(B2)
+        pl.show(block=False)
+        # import sys
+        # sys.exit('done')
+
+    if fullB is not None:
+        fbsme = col_columns_atend(fullB, B2Inds.flatten())
+        # fbd = fullB.todense()
+        # fb2 = fbd[1:, B2Inds]
+        # import matplotlib.pylab as pl
+        # pl.spy(fbsme)
+        # pl.show(block=False)
+        # print 'condition number is ', npla.cond(fb2)
+        # print 'N is ', N
+
+    raise Warning('TODO: debug')
 
     return MSmeCL, BSme, B2Inds, B2BoolInv, B2BI
 
@@ -290,7 +305,7 @@ def get_B2_bubbleinds(N, V, mesh, Q=None):
 # the DoFs of the velocity
 #  edgeCRDofArray[edge_index] = [dof_index1, dof_index2]
 #  scheinen aber doch sortiert zu sein: edgeCRDofArray[i] = [2i, 2i+1]
-def computeEdgeCRDofArray(V, mesh):
+def computeEdgeCRDofArray(V, mesh, B=None):
     # dof map, dim_V = 2 * num_E
     num_E = mesh.num_facets()
     dofmap = V.dofmap()
@@ -364,7 +379,7 @@ def commonEdgeInd(cell1_ind, cell2_ind, mesh):
 # returns the edges corresponding to V_{2,h} as in the Preprint
 #  performs Algorithm 1
 #  define mapping iota: cells -> interior edges
-def computeSmartMinExtMapping(V, mesh):
+def computeSmartMinExtMapping(V, mesh, B=None):
     nr_cells = mesh.num_cells()
     # T_0 = triangle with sell-index 0
     # list of remaining triangles
@@ -416,7 +431,8 @@ def computeSmartMinExtMapping(V, mesh):
     return E
 
 
-def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
+def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
+                  Q=None):
     """compute the indices of dofs that set up
     the invertible B2. This function is specific for CR elements."""
 
@@ -425,10 +441,10 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
     # koennte man vermutlich auch eleganter ohne die B Matrix machen
 
     # apply algorithm from Preprint
-    edges_V2 = computeSmartMinExtMapping(V, mesh)
+    edges_V2 = computeSmartMinExtMapping(V, mesh, B=B_matrix)
     # get corresponding degrees of freedom of the CR-scheme
     print 'corresponding DoF for CR'
-    edgeCRDofArray = computeEdgeCRDofArray(V, mesh)
+    edgeCRDofArray = computeEdgeCRDofArray(V, mesh, B=B_matrix)
     DoF_for_V2 = edgeCRDofArray[edges_V2.astype(int)].astype(int)
     DoF_for_V2_x = DoF_for_V2[:, 0]
     # this as indices
@@ -449,7 +465,6 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
         ydof = lut[DoF_for_V2_y[i]]
         colx = B_matrix[:, xdof]
         coly = B_matrix[:, ydof]
-        # raise Warning('TODO: debug')
         if abs(coly[i+1, 0]) > abs(colx[i+1, 0]):
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
@@ -460,4 +475,5 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None):
         #     # i.e., divergence vanishes
         #     dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
+    # raise Warning('TODO: debug')
     return dof_for_regular_B2

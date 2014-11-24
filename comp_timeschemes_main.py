@@ -35,7 +35,7 @@ class TimestepParams(object):
         self.SaveIniVal = False
         self.SaveTStps = False
         self.UsePreTStps = False
-        self.TolCorB = True
+        self.TolCorB = False
 
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
@@ -98,7 +98,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         from scipy.io import loadmat
 
         MSmeCL, BSme, B2Inds, B2BoolInv, B2BI = smartminex_tayhoomesh.\
-            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme)
+            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme, fullB=Ba)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
@@ -240,7 +240,7 @@ class UpFiles(object):
             self.p_file = dolfin.File("results/pressure.pvd")
 
 if __name__ == '__main__':
-    scheme = 'TH'
+    scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
     # solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
@@ -252,8 +252,11 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
     # solve_euler_timedep(method=1, N=20, NtsList=[16])
-    solve_euler_timedep(method=1, N=40, LinaTol=2**(-10),
-                        MaxIter=200, NtsList=[16, 64, 256, 1024],
+    # solve_euler_timedep(method=1, N=60, LinaTol=2**(-10),
+    #                     MaxIter=100, NtsList=[16, 64, 256, 1024],
+    #                     scheme=scheme)
+    solve_euler_timedep(method=1, N=2, LinaTol=0,
+                        MaxIter=100, NtsList=[16],  # , 64, 256, 1024],
                         scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])

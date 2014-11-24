@@ -19,6 +19,10 @@ def col_columns_atend(SparMat, ColInd):
 	of columns which are appended at the right end 
 	of the matrix while the remaining columns are shifted to left.
 
+    Parameters
+    ----------
+    ColInd : (N, ) array
+
 	"""
 	
 	mat_csr = sps.csr_matrix(SparMat, copy=True)
