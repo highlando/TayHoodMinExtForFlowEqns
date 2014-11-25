@@ -13,6 +13,8 @@ import smartminex_tayhoomesh as smt
 
 from prob_defs import ProbParams
 
+import dolfin_navier_scipy.problem_setups as dnsps
+
 
 class TimestepParams(object):
 
@@ -41,7 +43,7 @@ class TimestepParams(object):
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
-                        scheme='TH'):
+                        scheme='TH', prob=None):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -55,7 +57,33 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
-    PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
+    if prob == 'cyl':
+        femp, stokesmatsc, rhsd_vfrc, \
+            rhsd_stbc, data_prfx, ddir, proutdir \
+            = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=100)
+        Mc, Ac = stokesmatsc['M'], stokesmatsc['A']
+        BTc, Bc = stokesmatsc['JT'], stokesmatsc['J']
+
+        bcinds, bcvals = femp['bcinds'], femp['bcvals']
+
+        fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
+
+        print 'Nv, Np -- w/o boundary nodes', BTc.shape
+    else:
+        PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
+        # get system matrices as np.arrays
+        Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
+        fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
+        print 'Nv, Np -- w/ boundary nodes', BTa.shape
+
+        # condense the system by resolving the boundary values
+        (Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals,
+         invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba,
+                                              fv, fp, PrP.velbcs)
+        print 'Nv, Np -- w/o boundary nodes', BTc.shape
+
+    raise Warning('TODO: debug')
+
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N)
 
@@ -81,16 +109,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     print 'Omega = %d' % TsP.Omega
     print 'You have chosen %s for time integration' % methdict[method]
     print 'The tolerance for the linear solver is %e' % TsP.linatol
-
-    # get system matrices as np.arrays
-    Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
-    fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
-    print 'Nv, Np -- w/ boundary nodes', BTa.shape
-
-    # condense the system by resolving the boundary values
-    (Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals,
-     invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba, fv, fp, PrP.velbcs)
-    print 'Nv, Np -- w/o boundary nodes', BTc.shape
 
     if method == 1:
         # Rearrange the matrices and rhs
@@ -243,8 +261,8 @@ if __name__ == '__main__':
     scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
-    # solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
-    #                       MaxIter=85, NtsList=[16, 23, 32])
+    solve_euler_timedep(method=2, N=2, tE=1.0, LinaTol=0,  # 2**(-12),
+                        MaxIter=85, NtsList=[16], scheme=scheme, prob='cyl')
     # , 45, 64,91, 128])
     # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
     #                     MaxIter=800, NtsList=[512])
@@ -252,9 +270,9 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
     # solve_euler_timedep(method=1, N=20, NtsList=[16])
-    solve_euler_timedep(method=1, N=60, LinaTol=2**(-10),
-                        MaxIter=100, NtsList=[16, 64, 256, 1024],
-                        scheme=scheme)
+    # solve_euler_timedep(method=1, N=60, LinaTol=2**(-10),
+    #                     MaxIter=200, NtsList=[64, 256, 1024],
+    #                     scheme=scheme)
     # solve_euler_timedep(method=1, N=60, LinaTol=0,
     #                     MaxIter=100, NtsList=[16],  # , 64, 256, 1024],
     #                     scheme=scheme)
