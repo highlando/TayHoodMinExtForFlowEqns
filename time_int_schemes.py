@@ -57,10 +57,6 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     B1Sme = BSme[:, :Nv - (Np - 1)]
     B2Sme = BSme[:, Nv - (Np - 1):]
-    print 'condition number is ', np.linalg.cond(B2Sme.todense())
-    print 'N is ', N
-
-    raise Warning('TODO: debug')
 
     M1Sme = MSme[:, :Nv - (Np - 1)]
     M2Sme = MSme[:, Nv - (Np - 1):]
@@ -96,9 +92,7 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
         sps.hstack([IterASp, sps.csr_matrix((Nv + Np - 1, Np - 1))]),
         IterA3])
 
-    print '# # # # # # hello 5 # # # # # # '
     IterAfac = spsla.factorized(IterA)
-    print '# # # # # # hello 5 # # # # # # '
 
     # Preconditioning ...
     #
@@ -113,7 +107,6 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             qq = MLumpI*qqpq[:Nv, ]
 
             p = qqpq[Nv:-(Np - 1), ]
-            print 'hello 1'
             p = spsla.spsolve(B2Sme, p)
             p = MLump2*np.atleast_2d(p).T
             p = spsla.spsolve(B2Sme.T, p)
@@ -151,7 +144,6 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     if qqpq_init is None and TsP.linatol > 0:
         # initial value for tq2
         ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
-        print '# # # # # # hello 2 # # # # # # '
         tq2_old = spsla.spsolve(M2Sme[-(Np-1):, :], CurFv[-(Np-1):, ])
         # tq2_old = MLumpI2*CurFv[-(Np-1):,]
         tq2_old = np.atleast_2d(tq2_old).T
@@ -367,7 +359,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
                 # vp_new = IterAfac(Iterrhs.flatten())
-                print '# # # # # # hello 3# # # # # # '
                 vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
                 TolCor = 0

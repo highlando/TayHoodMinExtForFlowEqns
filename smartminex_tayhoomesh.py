@@ -1,6 +1,7 @@
 import numpy as np
 from dolfin import Mesh, cells, Cell, facets, Facet
 import numpy.linalg as npla
+import scipy.sparse as sps
 
 
 def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
@@ -50,11 +51,12 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
 
     try:
         SmDic = loadmat(dname)
+        pdoflist = loadmat(dname+'pdoflist')
 
     except IOError:
         print 'Computing the B2 indices...'
         # get the indices of the B2-part
-        B2Inds = get_b2inds_rtn(**args)
+        B2Inds, pdoflist = get_b2inds_rtn(**args)
         # the B2 inds wrt to inner nodes
         # this gives a masked array of boolean type
         B2BoolInv = np.in1d(np.arange(PrP.V.dim())[PrP.invinds], B2Inds)
@@ -76,6 +78,8 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
                         'B2Inds': B2Inds,
                         'B2BoolInv': B2BoolInv,
                         'B2BI': B2BI})
+        if scheme == 'CR':
+            savemat(dname+'pdoflist', {'pdoflist': pdoflist})
 
     SmDic = loadmat(dname)
 
@@ -85,28 +89,43 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
     B2BoolInv = SmDic['B2BoolInv'] > 0
     B2BoolInv = B2BoolInv.flatten()
     B2BI = SmDic['B2BI']
-    only_check_cond = True
+    if scheme == 'CR':
+        pdoflist = loadmat(dname+'pdoflist')['pdoflist']
+    else:
+        pdoflist = None
+    only_check_cond = False
     if only_check_cond:
         B2 = BSme[1:, :][:, -B2Inds.size:]
         print 'condition number is ', npla.cond(B2.todense())
         print 'N is ', N
         import matplotlib.pylab as pl
+        pl.figure(1)
         pl.spy(B2)
         pl.show(block=False)
-        # import sys
-        # sys.exit('done')
+        import sys
+        sys.exit('done')
 
     if fullB is not None:
         fbsme = col_columns_atend(fullB, B2Inds.flatten())
-        # fbd = fullB.todense()
-        # fb2 = fbd[1:, B2Inds]
-        # import matplotlib.pylab as pl
-        # pl.spy(fbsme)
-        # pl.show(block=False)
-        # print 'condition number is ', npla.cond(fb2)
-        # print 'N is ', N
+        import matplotlib.pylab as pl
+        pl.figure(2)
+        pl.spy(fbsme)
+        pl.show(block=False)
+        fbsmec = fbsme[0:, :][:, -B2Inds.size:]
+        pl.figure(3)
+        pl.spy(fbsmec)
+        pl.show(block=False)
+        if pdoflist is not None:
+            linelist = []
+            for pdof in pdoflist.flatten().tolist()[1:]:
+                linelist.append(fbsmec[pdof, :])
+            fbsmecr = sps.vstack(linelist)
+        pl.figure(4)
+        pl.spy(fbsmecr)
+        pl.show(block=False)
 
-    raise Warning('TODO: debug')
+        print 'condition number is ', npla.cond(fbsmecr.T.todense())
+        print 'N is ', N
 
     return MSmeCL, BSme, B2Inds, B2BoolInv, B2BI
 
@@ -296,7 +315,7 @@ def get_B2_bubbleinds(N, V, mesh, Q=None):
                 BD[CC + 2 * iCR + CI + 1, 3]])
             VelBubsChoice = np.append(VelBubsChoice, ClusCont)
 
-    return VelBubsChoice.astype(int)
+    return VelBubsChoice.astype(int), None
 
 
 # some helpful functions for CR
@@ -312,7 +331,7 @@ def computeEdgeCRDofArray(V, mesh, B=None):
     edgeCRDofArray = np.zeros((num_E, 2))
 
     # loop over cells and fill array
-    for cell in cells(mesh):
+    for k, cell in enumerate(cells(mesh)):
         # list of dof-indices for edges of the cell
         dofs = dofmap.cell_dofs(cell.index())
         for i, facet in enumerate(facets(cell)):
@@ -321,6 +340,7 @@ def computeEdgeCRDofArray(V, mesh, B=None):
             # corresponding DoFs (2 basisfct per edge)
             edgeCRDofArray[facet.index()] = [dofs[i], dofs[i] + 1]
             # every interior edge visited twice but EGAL!
+
     return edgeCRDofArray
 
 
@@ -428,7 +448,7 @@ def computeSmartMinExtMapping(V, mesh, B=None):
         # update last visited triangle
         last_T = new_T
 
-    return E
+    return E, T_minus_R
 
 
 def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
@@ -441,7 +461,7 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
     # koennte man vermutlich auch eleganter ohne die B Matrix machen
 
     # apply algorithm from Preprint
-    edges_V2 = computeSmartMinExtMapping(V, mesh, B=B_matrix)
+    edges_V2, pdoflist = computeSmartMinExtMapping(V, mesh, B=B_matrix)
     # get corresponding degrees of freedom of the CR-scheme
     print 'corresponding DoF for CR'
     edgeCRDofArray = computeEdgeCRDofArray(V, mesh, B=B_matrix)
@@ -465,15 +485,7 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
         ydof = lut[DoF_for_V2_y[i]]
         colx = B_matrix[:, xdof]
         coly = B_matrix[:, ydof]
-        if abs(coly[i+1, 0]) > abs(colx[i+1, 0]):
+        if np.linalg.norm(coly.todense()) > np.linalg.norm(colx.todense()):
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
-        # # Problem, dass erster Eintrag noch da?? vmtl nein
-        #
-        # if npla.norm(col.toarray(), np.inf) < 1e-14:
-        #     # norm to small --> seems to be a zero-column,
-        #     # i.e., divergence vanishes
-        #     dof_for_regular_B2[i] = DoF_for_V2_y[i]
-
-    # raise Warning('TODO: debug')
-    return dof_for_regular_B2
+    return dof_for_regular_B2, pdoflist

@@ -9,7 +9,7 @@ import glob
 
 import dolfin_to_nparrays as dtn
 import time_int_schemes as tis
-import smartminex_tayhoomesh
+import smartminex_tayhoomesh as smt
 
 from prob_defs import ProbParams
 
@@ -35,7 +35,7 @@ class TimestepParams(object):
         self.SaveIniVal = False
         self.SaveTStps = False
         self.UsePreTStps = False
-        self.TolCorB = False
+        self.TolCorB = True
 
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
@@ -97,8 +97,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         # from smamin_utils import col_columns_atend
         from scipy.io import loadmat
 
-        MSmeCL, BSme, B2Inds, B2BoolInv, B2BI = smartminex_tayhoomesh.\
-            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme, fullB=Ba)
+        MSmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
+            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme, fullB=None)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
@@ -252,11 +252,11 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
     # solve_euler_timedep(method=1, N=20, NtsList=[16])
-    # solve_euler_timedep(method=1, N=60, LinaTol=2**(-10),
-    #                     MaxIter=100, NtsList=[16, 64, 256, 1024],
-    #                     scheme=scheme)
-    solve_euler_timedep(method=1, N=2, LinaTol=0,
-                        MaxIter=100, NtsList=[16],  # , 64, 256, 1024],
+    solve_euler_timedep(method=1, N=60, LinaTol=2**(-10),
+                        MaxIter=100, NtsList=[16, 64, 256, 1024],
                         scheme=scheme)
+    # solve_euler_timedep(method=1, N=60, LinaTol=0,
+    #                     MaxIter=100, NtsList=[16],  # , 64, 256, 1024],
+    #                     scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
