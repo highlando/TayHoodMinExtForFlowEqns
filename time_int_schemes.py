@@ -259,7 +259,10 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             vCur.t = tcur
             pCur.t = tcur - dt
 
-            ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+            if globalcount:
+                ContiRes.append(0)  # TODO: fix this -- had troubles on pc764
+            else:
+                ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
             VelEr.append(errornorm(vCur, v))
             PEr.append(errornorm(pCur, p))
             TolCorL.append(TolCor)
@@ -431,7 +434,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
             vCur.t = tcur
             pCur.t = tcur - dt
 
-            ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
+            if globalcount:
+                ContiRes.append(0)  # TODO: fix this -- had troubles on pc764
+            else:
+                ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
             VelEr.append(errornorm(vCur, v))
             PEr.append(errornorm(pCur, p))
             TolCorL.append(TolCor)
