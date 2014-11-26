@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import matlibplots.conv_plot_utils as cpu
 
 import json
 
@@ -89,20 +90,23 @@ def jsd_calc_l2errs(JsDict):
 
     jsd = load_json_dicts(JsDict)
     timelength = jsd['TimeInterval'][1] - jsd['TimeInterval'][0]
-    contresl, velerrl, perrl = [], [], []
+    contresl, velerrl = [], []
+    # perrl = []
     for i in range(len(jsd['TimeDiscs'])):
         dx = timelength / jsd['TimeDiscs'][i]
         contresl.append(np.sqrt(np.trapz(np.square(jsd['ContiRes'][i]),
                         dx=dx)))
         velerrl.append(np.sqrt(np.trapz(np.square(jsd['VelEr'][i]), dx=dx)))
-        perrl.append(np.sqrt(np.trapz(np.square(jsd['PEr'][i]), dx=dx)))
+        # perrl.append(np.sqrt(np.trapz(np.square(jsd['PEr'][i]), dx=dx)))
 
-    print 'L2 errors for method ' + jsd['TimeIntMeth']
+    print '\n L2 errors for method ' + jsd['TimeIntMeth']
     print 'N = ', jsd['SpaceDiscParam']
-    print 'Nts = ', jsd['TimeDiscs']
-    print 'Velocity Errors: ', velerrl
-    print 'Presure Errors: ', perrl
-    print 'Conti Residuals: ', contresl
+    print 'Nts = '
+    cpu.print_nparray_tex(jsd['TimeDiscs'], fstr='.0f')
+    print 'Velocity Errors (scaled by inverse of): ', velerrl[0]
+    cpu.print_nparray_tex(np.array(velerrl/velerrl[0]))
+    # print 'Presure Errors: ', perrl
+    # print 'Conti Residuals: ', contresl
 
 
 def jsd_count_timeiters(JsDict):
@@ -114,5 +118,9 @@ def jsd_count_timeiters(JsDict):
         iterl.append((np.array(jsd['NumIter'][i])).sum())
 
     print 'Nts = ', jsd['TimeDiscs']
-    print 'Time for iters: ', timel
-    print 'Iters: ', iterl
+    print 'Time for iters: '
+    cpu.print_nparray_tex(timel, fstr='.1f')
+    print 'Iters: '
+    cpu.print_nparray_tex(iterl, fstr='.0f')
+    cpu.print_nparray_tex(np.array(iterl)/np.array(jsd['TimeDiscs']),
+                          fstr='.0f')
