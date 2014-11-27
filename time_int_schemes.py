@@ -473,10 +473,13 @@ def expand_vp_dolfunc(PrP, vp=None, vc=None, pc=None, pdof=None):
     elif pdof == -1:
         pe = pc
     else:
-        pe = np.vstack([pc[:pdof], np.vstack([[0.02], pc[pdof:]])])
+        pe = np.vstack([pc[:pdof], np.vstack([[0], pc[pdof:]])])
 
     v.vector().set_local(ve)
     p.vector().set_local(pe)
+
+    v.rename("v", "field")
+    p.rename("p", "field")
 
     return v, p
 
