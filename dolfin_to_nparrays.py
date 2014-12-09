@@ -5,7 +5,7 @@ import scipy.sparse as sps
 parameters.linear_algebra_backend = "uBLAS"
 
 
-def get_sysNSmats(V, Q):  # , velbcs ):
+def get_sysNSmats(V, Q, nu=1.):  # , velbcs ):
     """ Assembles the system matrices for Stokes equation
 
     in mixed FEM formulation, namely
@@ -25,6 +25,7 @@ def get_sysNSmats(V, Q):  # , velbcs ):
 
     ma = inner(u, v) * dx
     mp = inner(p, q) * dx
+    # we multiply by nu below for the case that nu=0
     aa = inner(grad(u), grad(v)) * dx
     grada = div(v) * p * dx
     diva = q * div(u) * dx
@@ -44,7 +45,7 @@ def get_sysNSmats(V, Q):  # , velbcs ):
     MPa = sps.csr_matrix((values, cols, rows))
 
     rows, cols, values = A.data()
-    Aa = sps.csr_matrix((values, cols, rows))
+    Aa = nu*sps.csr_matrix((values, cols, rows))
 
     rows, cols, values = Grad.data()
     BTa = sps.csr_matrix((values, cols, rows))
