@@ -55,7 +55,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
-    PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
+    PrP = ProbParams(N, omega=Omega, nu=nu, scheme=scheme)
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N, scheme=scheme)
 
@@ -253,15 +253,16 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
     #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
     #                     scheme=scheme)
+    nu = 1e-2
     scheme = 'CR'
-    N = 25
-    solve_euler_timedep(method=2, N=N, LinaTol=0,
-                        MaxIter=100, NtsList=[32],  # , 64],
+    N = 60
+    solve_euler_timedep(method=2, N=N, LinaTol=0, nu=nu,
+                        MaxIter=100, NtsList=[64],  # , 64],
                         scheme=scheme)
     scheme = 'TH'
-    N = 15
-    solve_euler_timedep(method=2, N=N, LinaTol=0,
-                        MaxIter=100, NtsList=[32],  # , 64],
+    N = 20
+    solve_euler_timedep(method=2, N=N, LinaTol=0, nu=nu,
+                        MaxIter=100, NtsList=[64],  # , 64],
                         scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])

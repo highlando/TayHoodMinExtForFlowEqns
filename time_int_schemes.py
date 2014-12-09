@@ -300,7 +300,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTc[:, :-1]])
     IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
     IterA = sps.vstack([IterAv, IterAp])
-    # IterAfac = spsla.factorized(IterA)
+    IterAfac = spsla.factorized(IterA)
 
     MPc = MP[:-1, :][:, :-1]
 
@@ -358,8 +358,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
 
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
-                # vp_new = IterAfac(Iterrhs.flatten())
-                vp_new = spsla.spsolve(IterA, Iterrhs)
+                vp_new = IterAfac(Iterrhs.flatten())
+                # vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
                 TolCor = 0
 
