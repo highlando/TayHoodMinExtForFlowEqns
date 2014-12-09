@@ -16,7 +16,7 @@ from prob_defs import ProbParams
 
 class TimestepParams(object):
 
-    def __init__(self, method, N):
+    def __init__(self, method, N, scheme=None):
         self.t0 = 0
         self.tE = 1.0
         self.Omega = 8
@@ -24,7 +24,7 @@ class TimestepParams(object):
         self.NOutPutPts = 16
         self.method = method
         self.SadPtPrec = True
-        self.UpFiles = UpFiles(method)
+        self.UpFiles = UpFiles(method, scheme=scheme)
         self.Residuals = NseResiduals()
         self.linatol = 0  # 1e-4  # 0 for direct sparse solver
         self.TolCor = []
@@ -57,7 +57,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     # set nu=0 for Euler flow
     PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
     # instantiate the Time Int Parameters
-    TsP = TimestepParams(methdict[method], N)
+    TsP = TimestepParams(methdict[method], N, scheme=scheme)
 
     if NtsList is not None:
         TsP.Ntslist = NtsList
@@ -231,16 +231,15 @@ class NseResiduals(object):
 
 class UpFiles(object):
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, scheme=None):
         if name is not None:
-            self.u_file = dolfin.File("results/%s_velocity.pvd" % name)
-            self.p_file = dolfin.File("results/%s_pressure.pvd" % name)
-        else:
-            self.u_file = dolfin.File("results/velocity.pvd")
-            self.p_file = dolfin.File("results/pressure.pvd")
+            self.u_file = dolfin.File("results/{0}{1}".format(name, scheme) +
+                                      "_velocity.pvd")
+            self.p_file = dolfin.File("results/{0}{1}".format(name, scheme) +
+                                      "_pressure.pvd")
 
 if __name__ == '__main__':
-    scheme = 'TH'
+    scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
     # solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
@@ -255,7 +254,7 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
     #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
     #                     scheme=scheme)
-    solve_euler_timedep(method=2, N=25, LinaTol=0,
+    solve_euler_timedep(method=2, N=60, LinaTol=0,
                         MaxIter=100, NtsList=[32],  # , 64],
                         scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
