@@ -297,7 +297,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
 
-    IterAv = MFac*sps.hstack([1.0 / dt*Mc, PFacI*(-1)*BTc[:, :-1]])
+    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTc[:, :-1]])
     IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
     IterA = sps.vstack([IterAv, IterAp])
     # IterAfac = spsla.factorized(IterA)
