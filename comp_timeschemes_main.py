@@ -41,7 +41,7 @@ class TimestepParams(object):
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
-                        scheme='TH'):
+                        scheme='TH', nu=0):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -55,7 +55,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
-    PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
+    PrP = ProbParams(N, omega=Omega, nu=nu, scheme=scheme)
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N, scheme=scheme)
 
@@ -83,7 +83,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     print 'The tolerance for the linear solver is %e' % TsP.linatol
 
     # get system matrices as np.arrays
-    Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
+    Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q, nu=nu)
     fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
     print 'Nv, Np -- w/ boundary nodes', BTa.shape
 
@@ -97,8 +97,9 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         # from smamin_utils import col_columns_atend
         from scipy.io import loadmat
 
-        MSmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
-            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme, fullB=None)
+        MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
+            get_smamin_rearrangement(N, PrP, M=Mc, A=Ac,
+                                     B=Bc, scheme=scheme, fullB=None)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
@@ -128,7 +129,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
     if TsP.ParaviewOutput:
         os.chdir('results/')
-        for fname in glob.glob(TsP.method + '*'):
+        for fname in glob.glob(TsP.method + scheme + '*'):
             os.remove(fname)
         os.chdir('..')
 
@@ -146,7 +147,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             tis.halfexp_euler_nseind2(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc,
                                       vp_init, PrP, TsP)
         elif method == 1:
-            tis.halfexp_euler_smarminex(MSmeCL, BSme, MPa, FvbcSme, FpbcSme,
+            tis.halfexp_euler_smarminex(MSmeCL, ASmeCL, BSme,
+                                        MPa, FvbcSme, FpbcSme,
                                         B2BoolInv, PrP, TsP, vp_init,
                                         qqpq_init=qqpq_init)
 
@@ -208,7 +210,7 @@ def save_simu(TsP, PrP):
         TsP.linatol,
         TsP.Ntslist[0],
         TsP.Ntslist[-1],
-        PrP.N) + TsP.method + '.json'
+        PrP.N) + TsP.method + scheme + '.json'
 
     f = open(JsFile, 'w')
     f.write(json.dumps(DictOfVals))
@@ -239,7 +241,6 @@ class UpFiles(object):
                                       "_pressure.pvd")
 
 if __name__ == '__main__':
-    scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
     # solve_euler_timedep(method=2, N=20, tE=1.0, LinaTol=0,  # 2**(-12),
@@ -254,8 +255,17 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
     #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
     #                     scheme=scheme)
-    solve_euler_timedep(method=2, N=60, LinaTol=0,
-                        MaxIter=100, NtsList=[32],  # , 64],
+    method = 1
+    nu = 1e-2
+    scheme = 'CR'
+    N = 80
+    solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
+                        MaxIter=100, NtsList=[64, 128],  # , 64],
                         scheme=scheme)
+    # scheme = 'TH'
+    # N = 40
+    # solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
+    #                     MaxIter=100, NtsList=[64, 128],  # , 64],
+    #                     scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
