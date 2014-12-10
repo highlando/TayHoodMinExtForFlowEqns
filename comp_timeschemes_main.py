@@ -258,9 +258,9 @@ if __name__ == '__main__':
     method = 1
     nu = 1e-2
     scheme = 'CR'
-    N = 80
-    solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
-                        MaxIter=100, NtsList=[64, 128],  # , 64],
+    N = 60
+    solve_euler_timedep(method=method, N=N, LinaTol=2**(-10), nu=nu,
+                        MaxIter=100, NtsList=[64, 128, 256],  # , 64],
                         scheme=scheme)
     # scheme = 'TH'
     # N = 40
