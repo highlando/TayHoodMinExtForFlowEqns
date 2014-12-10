@@ -4,7 +4,8 @@ import numpy.linalg as npla
 import scipy.sparse as sps
 
 
-def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
+def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
+                             scheme='TH', fullB=None):
     from smamin_utils import col_columns_atend
     from scipy.io import loadmat, savemat
     """ rearrange `B` and `M` for smart minimal extension
@@ -47,7 +48,7 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q,
-                    B_matrix=Bc, invinds=PrP.invinds)
+                    B_matrix=B, invinds=PrP.invinds)
 
     try:
         SmDic = loadmat(dname)
@@ -67,13 +68,18 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
         print 'Rearranging the matrices...'
         # Reorder the matrices for smart min ext...
         # ...the columns
-        MSmeC = col_columns_atend(Mc, B2BI)
-        BSme = col_columns_atend(Bc, B2BI)
+        MSmeC = col_columns_atend(M, B2BI)
+        BSme = col_columns_atend(B, B2BI)
         # ...and the lines
         MSmeCL = col_columns_atend(MSmeC.T, B2BI)
+        if A is not None:
+            ASmeC = col_columns_atend(A, B2BI)
+            ASmeCL = (col_columns_atend(ASmeC.T, B2BI)).T
+
         print 'done'
 
         savemat(dname, {'MSmeCL': MSmeCL,
+                        'ASmeCL': ASmeCL,
                         'BSme': BSme,
                         'B2Inds': B2Inds,
                         'B2BoolInv': B2BoolInv,
@@ -84,6 +90,7 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
     SmDic = loadmat(dname)
 
     MSmeCL = SmDic['MSmeCL']
+    ASmeCL = SmDic['ASmeCL']
     BSme = SmDic['BSme']
     B2Inds = SmDic['B2Inds']
     B2BoolInv = SmDic['B2BoolInv'] > 0
@@ -127,7 +134,10 @@ def get_smamin_rearrangement(N, PrP, Mc, Bc, scheme='TH', fullB=None):
         print 'condition number is ', npla.cond(fbsmecr.T.todense())
         print 'N is ', N
 
-    return MSmeCL, BSme, B2Inds, B2BoolInv, B2BI
+    if A is not None:
+        return MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI
+    else:
+        return MSmeCL, BSme, B2Inds, B2BoolInv, B2BI
 
 
 def getmake_mesh(N):
