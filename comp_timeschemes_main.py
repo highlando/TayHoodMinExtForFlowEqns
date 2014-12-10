@@ -97,8 +97,9 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         # from smamin_utils import col_columns_atend
         from scipy.io import loadmat
 
-        MSmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
-            get_smamin_rearrangement(N, PrP, Mc, Bc, scheme=scheme, fullB=None)
+        MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
+            get_smamin_rearrangement(N, PrP, M=Mc, A=Ac,
+                                     B=Bc, scheme=scheme, fullB=None)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
@@ -146,7 +147,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             tis.halfexp_euler_nseind2(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc,
                                       vp_init, PrP, TsP)
         elif method == 1:
-            tis.halfexp_euler_smarminex(MSmeCL, BSme, MPa, FvbcSme, FpbcSme,
+            tis.halfexp_euler_smarminex(MSmeCL, ASmeCL, BSme,
+                                        MPa, FvbcSme, FpbcSme,
                                         B2BoolInv, PrP, TsP, vp_init,
                                         qqpq_init=qqpq_init)
 
@@ -253,16 +255,17 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
     #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
     #                     scheme=scheme)
+    method = 1
     nu = 1e-2
     scheme = 'CR'
-    N = 60
-    solve_euler_timedep(method=2, N=N, LinaTol=0, nu=nu,
-                        MaxIter=100, NtsList=[64],  # , 64],
+    N = 80
+    solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
+                        MaxIter=100, NtsList=[64, 128],  # , 64],
                         scheme=scheme)
-    scheme = 'TH'
-    N = 20
-    solve_euler_timedep(method=2, N=N, LinaTol=0, nu=nu,
-                        MaxIter=100, NtsList=[64],  # , 64],
-                        scheme=scheme)
+    # scheme = 'TH'
+    # N = 40
+    # solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
+    #                     MaxIter=100, NtsList=[64, 128],  # , 64],
+    #                     scheme=scheme)
     # solve_euler_timedep(method=1, N=80, NtsList=[32])
     # solve_euler_timedep(method=1, N=80, NtsList=[64])
