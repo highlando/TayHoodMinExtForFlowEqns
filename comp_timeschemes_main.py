@@ -196,6 +196,7 @@ def save_simu(TsP, PrP):
     import json
     DictOfVals = {'SpaceDiscParam': PrP.N,
                   'Omega': PrP.omega,
+                  'nu': PrP.nu,
                   'TimeInterval': [TsP.t0, TsP.tE],
                   'TimeDiscs': TsP.Ntslist,
                   'LinaTol': TsP.linatol,
@@ -210,7 +211,7 @@ def save_simu(TsP, PrP):
         TsP.linatol,
         TsP.Ntslist[0],
         TsP.Ntslist[-1],
-        PrP.N) + TsP.method + scheme + '.json'
+        PrP.N) + 'nu{0}'.format(PrP.nu) + TsP.method + scheme + '.json'
 
     f = open(JsFile, 'w')
     f.write(json.dumps(DictOfVals))
