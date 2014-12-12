@@ -99,7 +99,8 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     #     sps.hstack([IterASp, sps.csr_matrix((Nv + Np - 1, Np - 1))]),
     #     IterA3])
 
-    IterAfac = spsla.factorized(IterA)
+    if TsP.linatol == 0:
+        IterAfac = spsla.factorized(IterA)
 
     # Preconditioning ...
     #
@@ -188,12 +189,8 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 # Norm of rhs of index-1 formulation
                 if TsP.TolCorB:
                     NormRhsInd1 = np.sqrt(
-                        smamin_fem_ip(Iterrhs,
-                                      Iterrhs,
-                                      MSme,
-                                      MPc,
-                                      Nv,
-                                      Npc))[0][0]
+                        smamin_fem_ip(Iterrhs, Iterrhs,
+                                      MSme, MPc, Nv, Npc))[0][0]
                     TolCor = 1.0 / np.max([NormRhsInd1, 1])
 
                 else:
@@ -219,7 +216,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     krypy.linsys.RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
                                                 tol=TolCor*TsP.linatol,
                                                 maxiter=TsP.MaxIter,
-                                                max_restarts=8)
+                                                max_restarts=30)
                 tend = time.time()
                 qqpq_oldold = qqpq_old
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)

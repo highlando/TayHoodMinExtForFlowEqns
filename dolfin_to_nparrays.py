@@ -1,8 +1,9 @@
-from dolfin import *
+from dolfin import grad, inner, dx, div, assemble
+import dolfin
 import numpy as np
 import scipy.sparse as sps
 
-parameters.linear_algebra_backend = "uBLAS"
+dolfin.parameters.linear_algebra_backend = "uBLAS"
 
 
 def get_sysNSmats(V, Q, nu=1.):  # , velbcs ):
@@ -18,10 +19,10 @@ def get_sysNSmats(V, Q, nu=1.):  # , velbcs ):
     Plus the velocity mass matrix M.
     """
 
-    u = TrialFunction(V)
-    p = TrialFunction(Q)
-    v = TestFunction(V)
-    q = TestFunction(Q)
+    u = dolfin.TrialFunction(V)
+    p = dolfin.TrialFunction(Q)
+    v = dolfin.TestFunction(V)
+    q = dolfin.TestFunction(Q)
 
     ma = inner(u, v) * dx
     mp = inner(p, q) * dx
@@ -40,26 +41,31 @@ def get_sysNSmats(V, Q, nu=1.):  # , velbcs ):
     # Convert DOLFIN representation to numpy arrays
     rows, cols, values = M.data()
     Ma = sps.csr_matrix((values, cols, rows))
+    Ma.eliminate_zeros()
 
     rows, cols, values = MP.data()
     MPa = sps.csr_matrix((values, cols, rows))
+    MPa.eliminate_zeros()
 
     rows, cols, values = A.data()
     Aa = nu*sps.csr_matrix((values, cols, rows))
+    Aa.eliminate_zeros()
 
     rows, cols, values = Grad.data()
     BTa = sps.csr_matrix((values, cols, rows))
+    BTa.eliminate_zeros()
 
     rows, cols, values = Div.data()
     Ba = sps.csr_matrix((values, cols, rows))
+    Ba.eliminate_zeros()
 
     return Ma, Aa, BTa, Ba, MPa
 
 
 def setget_rhs(V, Q, fv, fp, velbcs=None, t=None):
 
-    v = TestFunction(V)
-    q = TestFunction(Q)
+    v = dolfin.TestFunction(V)
+    q = dolfin.TestFunction(Q)
 
     fv = inner(fv, v) * dx
     fp = inner(fp, q) * dx
@@ -81,7 +87,7 @@ def get_curfv(V, fv, invinds, tcur):
 
     """
 
-    v = TestFunction(V)
+    v = dolfin.TestFunction(V)
 
     fv.t = tcur
 
@@ -98,7 +104,7 @@ def get_curfv(V, fv, invinds, tcur):
 def get_convvec(u0, V):
     """return the convection vector e.g. for explicit schemes"""
 
-    v = TestFunction(V)
+    v = dolfin.TestFunction(V)
     ConvForm = inner(grad(u0) * u0, v) * dx
 
     ConvForm = assemble(ConvForm)
