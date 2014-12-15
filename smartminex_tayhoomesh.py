@@ -100,7 +100,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
         pdoflist = loadmat(dname+'pdoflist')['pdoflist']
     else:
         pdoflist = None
-    only_check_cond = False
+    only_check_cond = True
     if only_check_cond:
         B2 = BSme[1:, :][:, -B2Inds.size:]
         print 'condition number is ', npla.cond(B2.todense())
@@ -345,10 +345,10 @@ def computeEdgeCRDofArray(V, mesh, B=None):
         # list of dof-indices for edges of the cell
         dofs = dofmap.cell_dofs(cell.index())
         for i, facet in enumerate(facets(cell)):
-            # print 'cell: %3g  ||  i: %3g   ||
-            # facet: %3g' % (cell.index(), i, facet.index())
+            # print 'cell: %3g  ||  i: %3g   || facet: %3g || dof[i]: %3g' \
+            #     % (cell.index(), i, facet.index(), dofs[i])
             # corresponding DoFs (2 basisfct per edge)
-            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i] + 1]
+            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i+3]]
             # every interior edge visited twice but EGAL!
 
     return edgeCRDofArray
