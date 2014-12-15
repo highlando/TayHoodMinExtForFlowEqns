@@ -259,7 +259,7 @@ if __name__ == '__main__':
     method = 1
     nu = 1e-2
     scheme = 'CR'
-    N = 80
+    N = 5
     solve_euler_timedep(method=method, N=N, nu=nu,
                         # LinaTol=2**(-10), 
                         LinaTol=0, 
