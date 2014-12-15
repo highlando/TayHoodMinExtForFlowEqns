@@ -71,7 +71,7 @@ class ProbParams(object):
             self.V = dolfin.VectorFunctionSpace(self.mesh, "CG", 2)
             self.Q = dolfin.FunctionSpace(self.mesh, "CG", 1)
         elif scheme == 'CR':
-            self.mesh = dolfin.UnitSquareMesh(N, N)
+            self.mesh = dolfin.UnitSquareMesh(N, N)  # , 'crossed')
             self.V = dolfin.VectorFunctionSpace(self.mesh, "CR", 1)
             self.Q = dolfin.FunctionSpace(self.mesh, "DG", 0)
         self.velbcs = setget_velbcs_zerosq(self.mesh, self.V)

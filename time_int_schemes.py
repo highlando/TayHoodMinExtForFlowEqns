@@ -36,7 +36,7 @@ except NameError:
     pass  # no krypy -- I hope we don't need it
 
 
-def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
+def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                             PrP, TsP, vp_init, qqpq_init=None):
     """ halfexplicit euler for the NSE in index 1 formulation
 
@@ -61,6 +61,9 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     M1Sme = MSme[:, :Nv - (Np - 1)]
     M2Sme = MSme[:, Nv - (Np - 1):]
 
+    A1Sme = ASme[:, :Nv - (Np - 1)]
+    A2Sme = ASme[:, Nv - (Np - 1):]
+
     # The matrix to be solved in every time step
     #
     # 		1/dt*M11    M12  -B2'  0        q1
@@ -69,6 +72,12 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     # 		     B1     0    0     B2 	    q2
     #
     # cf. preprint
+    # if A is there - we need to treat it implicitly
+    #
+    # 		1/dt*M11+A11    M12  -B2'  A12        q1
+    # 		1/dt*M21+A21    M22  -B1'  A22        tq2
+    # 		1/dt*B1         B2   0       0    *   p     = rhs
+    # 		     B1         0    0       B2 	  q2
     #
 
     MFac = 1
@@ -78,21 +87,20 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     PFac = 1  # dt/WCD
     PFacI = 1  # WCD/dt
 
-    IterA1 = MFac*sps.hstack([sps.hstack([1.0/dt*M1Sme, M2Sme]),
-                              -PFacI*BSme.T])
-    IterA2 = WCD*sps.hstack([sps.hstack([1.0/dt*B1Sme, B2Sme]),
-                             sps.csr_matrix((Np - 1, Np - 1))])
-    IterASp = sps.vstack([IterA1, IterA2])
+    IterA1 = MFac*sps.hstack([1.0/dt*M1Sme + A1Sme, M2Sme,
+                              -PFacI*BSme.T, A2Sme])
+    IterA2 = WCD*sps.hstack([1.0/dt*B1Sme, B2Sme,
+                             sps.csr_matrix((Np-1, 2*(Np-1)))])
+    IterA3 = WC*sps.hstack([B1Sme, sps.csr_matrix((Np-1, 2*(Np-1))), B2Sme])
 
-    IterA3 = WC*sps.hstack(
-        [sps.hstack([B1Sme, sps.csr_matrix((Np - 1, 2*(Np - 1)))]),
-         B2Sme])
+    IterA = sps.vstack([IterA1, IterA2, IterA3])
 
-    IterA = sps.vstack([
-        sps.hstack([IterASp, sps.csr_matrix((Nv + Np - 1, Np - 1))]),
-        IterA3])
+    # IterA = sps.vstack([
+    #     sps.hstack([IterASp, sps.csr_matrix((Nv + Np - 1, Np - 1))]),
+    #     IterA3])
 
-    IterAfac = spsla.factorized(IterA)
+    if TsP.linatol == 0:
+        IterAfac = spsla.factorized(IterA)
 
     # Preconditioning ...
     #
@@ -181,12 +189,8 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 # Norm of rhs of index-1 formulation
                 if TsP.TolCorB:
                     NormRhsInd1 = np.sqrt(
-                        smamin_fem_ip(Iterrhs,
-                                      Iterrhs,
-                                      MSme,
-                                      MPc,
-                                      Nv,
-                                      Npc))[0][0]
+                        smamin_fem_ip(Iterrhs, Iterrhs,
+                                      MSme, MPc, Nv, Npc))[0][0]
                     TolCor = 1.0 / np.max([NormRhsInd1, 1])
 
                 else:
@@ -212,7 +216,7 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     krypy.linsys.RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
                                                 tol=TolCor*TsP.linatol,
                                                 maxiter=TsP.MaxIter,
-                                                max_restarts=8)
+                                                max_restarts=30)
                 tend = time.time()
                 qqpq_oldold = qqpq_old
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
@@ -297,10 +301,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
 
-    IterAv = MFac*sps.hstack([1.0 / dt*Mc, PFacI*(-1)*BTc[:, :-1]])
+    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTc[:, :-1]])
     IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
     IterA = sps.vstack([IterAv, IterAp])
-    # IterAfac = spsla.factorized(IterA)
+    IterAfac = spsla.factorized(IterA)
 
     MPc = MP[:-1, :][:, :-1]
 
@@ -358,8 +362,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
 
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
-                # vp_new = IterAfac(Iterrhs.flatten())
-                vp_new = spsla.spsolve(IterA, Iterrhs)
+                vp_new = IterAfac(Iterrhs.flatten())
+                # vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
                 TolCor = 0
 
@@ -473,10 +477,13 @@ def expand_vp_dolfunc(PrP, vp=None, vc=None, pc=None, pdof=None):
     elif pdof == -1:
         pe = pc
     else:
-        pe = np.vstack([pc[:pdof], np.vstack([[0.02], pc[pdof:]])])
+        pe = np.vstack([pc[:pdof], np.vstack([[0], pc[pdof:]])])
 
     v.vector().set_local(ve)
     p.vector().set_local(pe)
+
+    v.rename("v", "field")
+    p.rename("p", "field")
 
     return v, p
 
