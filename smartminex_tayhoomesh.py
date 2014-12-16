@@ -100,7 +100,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
         pdoflist = loadmat(dname+'pdoflist')['pdoflist']
     else:
         pdoflist = None
-    only_check_cond = True
+    only_check_cond = False
     if only_check_cond:
         B2 = BSme[1:, :][:, -B2Inds.size:]
         print 'condition number is ', npla.cond(B2.todense())
@@ -334,6 +334,7 @@ def get_B2_bubbleinds(N, V, mesh, Q=None):
 # the DoFs of the velocity
 #  edgeCRDofArray[edge_index] = [dof_index1, dof_index2]
 #  scheinen aber doch sortiert zu sein: edgeCRDofArray[i] = [2i, 2i+1]
+# nicht in fenics v1.2 -- chngd to edgeCRDofArray[i] = [dof[i], dof[i+3]]
 def computeEdgeCRDofArray(V, mesh, B=None):
     # dof map, dim_V = 2 * num_E
     num_E = mesh.num_facets()
@@ -349,6 +350,7 @@ def computeEdgeCRDofArray(V, mesh, B=None):
             #     % (cell.index(), i, facet.index(), dofs[i])
             # corresponding DoFs (2 basisfct per edge)
             edgeCRDofArray[facet.index()] = [dofs[i], dofs[i+3]]
+            # edgeCRDofArray[facet.index()] = [dofs[i], dofs[i]+1]
             # every interior edge visited twice but EGAL!
 
     return edgeCRDofArray
