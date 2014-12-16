@@ -223,10 +223,12 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     qqqp_pv = (qqpq_old - qqpq_oldold)
 
                     q1_tq2_p_q2_new = \
-                        krypy.linsys.RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
+                        krypy.linsys.RestartedGmres(cls,
+                                                    x0=qqpq_old+qqqp_pv,
                                                     tol=TolCor*TsP.linatol,
                                                     maxiter=TsP.MaxIter,
-                                                    max_restarts=30)
+                                                    max_restarts=100)
+
                     qqpq_oldold = qqpq_old
                     qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
                     tend = time.time()
