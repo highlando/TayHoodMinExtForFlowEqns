@@ -100,7 +100,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
         pdoflist = loadmat(dname+'pdoflist')['pdoflist']
     else:
         pdoflist = None
-    only_check_cond = True
+    only_check_cond = False
     if only_check_cond:
         B2 = BSme[1:, :][:, -B2Inds.size:]
         print 'condition number is ', npla.cond(B2.todense())

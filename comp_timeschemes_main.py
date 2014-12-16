@@ -27,6 +27,7 @@ class TimestepParams(object):
         self.UpFiles = UpFiles(method, scheme=scheme)
         self.Residuals = NseResiduals()
         self.linatol = 0  # 1e-4  # 0 for direct sparse solver
+        self.inikryupd = False  # initialization of krylov upd scheme
         self.TolCor = []
         self.MaxIter = 85
         self.Ml = None  # preconditioners
@@ -41,7 +42,7 @@ class TimestepParams(object):
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
-                        scheme='TH', nu=0):
+                        scheme='TH', nu=0, inikryupd=None):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -75,6 +76,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         TsP.UsePreTStps = UsePreTStps
     if SaveIniVal is not None:
         TsP.SaveIniVal = SaveIniVal
+    if inikryupd is not None:
+        TsP.inikryupd = inikryupd
 
     print 'Mesh parameter N = %d' % N
     print 'Time interval [%d,%1.2f]' % (TsP.t0, TsP.tE)
@@ -259,12 +262,12 @@ if __name__ == '__main__':
     method = 1
     nu = 1e-2
     scheme = 'CR'
-    N = 5
+    N = 50
     solve_euler_timedep(method=method, N=N, nu=nu,
-                        # LinaTol=2**(-10), 
-                        LinaTol=0, 
-                        MaxIter=350, NtsList=[32, 64, 128],  # , 64],
-                        scheme=scheme)
+                        LinaTol=2**(-10), 
+                        # LinaTol=0, 
+                        MaxIter=300, NtsList=[32, 64, 128],  # , 64],
+                        scheme=scheme, inikryupd=True)
     # scheme = 'TH'
     # N = 40
     # solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,

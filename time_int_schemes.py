@@ -168,6 +168,9 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
 
+    # compute 1st time step by direct solve to initialize the krylov upd scheme
+    inikryupd = TsP.inikryupd
+
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
 
@@ -186,51 +189,57 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                 TolCor = 0
             else:
-                # Norm of rhs of index-1 formulation
-                if TsP.TolCorB:
-                    NormRhsInd1 = np.sqrt(
-                        smamin_fem_ip(Iterrhs, Iterrhs,
-                                      MSme, MPc, Nv, Npc))[0][0]
-                    TolCor = 1.0 / np.max([NormRhsInd1, 1])
-
+                if inikryupd:
+                    print '\n1st step with direct solve to initialize krylov\n'
+                    q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                    qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
+                    TolCor = 0
+                    inikryupd = False  # only once !!
                 else:
-                    TolCor = 1.0
-                    # Values from previous calculations to initialize gmres
-                if TsP.UsePreTStps:
-                    dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
-                    try:
-                        IniV = loadmat(dname)
-                        qqpq_old = IniV['qqpq_old']
-                    except IOError:
-                        pass
+                    # Norm of rhs of index-1 formulation
+                    if TsP.TolCorB:
+                        NormRhsInd1 = np.sqrt(
+                            smamin_fem_ip(Iterrhs, Iterrhs,
+                                          MSme, MPc, Nv, Npc))[0][0]
+                        TolCor = 1.0 / np.max([NormRhsInd1, 1])
 
-                cls = krypy.linsys.\
-                    LinearSystem(IterA, Iterrhs, Ml=TsP.Ml, Mr=TsP.Mr,
-                                 ip_B=smamin_prec_fem_ip)
+                    else:
+                        TolCor = 1.0
+                        # Values from previous calculations to initialize gmres
+                    if TsP.UsePreTStps:
+                        dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
+                        try:
+                            IniV = loadmat(dname)
+                            qqpq_old = IniV['qqpq_old']
+                        except IOError:
+                            pass
 
-                tstart = time.time()
-                # extrapolating the initial value
-                qqqp_pv = (qqpq_old - qqpq_oldold)
+                    cls = krypy.linsys.\
+                        LinearSystem(IterA, Iterrhs, Ml=TsP.Ml, Mr=TsP.Mr,
+                                     ip_B=smamin_prec_fem_ip)
 
-                q1_tq2_p_q2_new = \
-                    krypy.linsys.RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
-                                                tol=TolCor*TsP.linatol,
-                                                maxiter=TsP.MaxIter,
-                                                max_restarts=30)
-                tend = time.time()
-                qqpq_oldold = qqpq_old
-                qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
+                    tstart = time.time()
+                    # extrapolating the initial value
+                    qqqp_pv = (qqpq_old - qqpq_oldold)
+
+                    q1_tq2_p_q2_new = \
+                        krypy.linsys.RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
+                                                    tol=TolCor*TsP.linatol,
+                                                    maxiter=TsP.MaxIter,
+                                                    max_restarts=30)
+                    qqpq_oldold = qqpq_old
+                    qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
+                    tend = time.time()
+                    print ('Needed {0} of max {1} iterations: ' +
+                           'final relres = {2}\n TolCor was {3}').\
+                        format(len(q1_tq2_p_q2_new.resnorms), TsP.MaxIter,
+                               q1_tq2_p_q2_new.resnorms[-1], TolCor)
+                    print 'Elapsed time {0}'.format(tend - tstart)
 
                 if TsP.SaveTStps:
                     from scipy.io import savemat
                     dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
                     savemat(dname, {'qqpq_old': qqpq_old})
-
-                print ('Needed {0} of max {1} iterations: ' +
-                       'final relres = {2}\n TolCor was {3}').\
-                    format(len(q1_tq2_p_q2_new.resnorms), TsP.MaxIter,
-                           q1_tq2_p_q2_new.resnorms[-1], TolCor)
-                print 'Elapsed time {0}'.format(tend - tstart)
 
             q1_old = qqpq_old[:Nv - (Np - 1), ]
             q2_old = qqpq_old[-Npc:, ]
@@ -304,7 +313,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTc[:, :-1]])
     IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
     IterA = sps.vstack([IterAv, IterAp])
-    IterAfac = spsla.factorized(IterA)
+    if TsP.linatol == 0:
+        IterAfac = spsla.factorized(IterA)
 
     MPc = MP[:-1, :][:, :-1]
 
