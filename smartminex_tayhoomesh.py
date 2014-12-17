@@ -334,6 +334,7 @@ def get_B2_bubbleinds(N, V, mesh, Q=None):
 # the DoFs of the velocity
 #  edgeCRDofArray[edge_index] = [dof_index1, dof_index2]
 #  scheinen aber doch sortiert zu sein: edgeCRDofArray[i] = [2i, 2i+1]
+# nicht in fenics v1.2 -- chngd to edgeCRDofArray[i] = [dof[i], dof[i+3]]
 def computeEdgeCRDofArray(V, mesh, B=None):
     # dof map, dim_V = 2 * num_E
     num_E = mesh.num_facets()
@@ -345,10 +346,11 @@ def computeEdgeCRDofArray(V, mesh, B=None):
         # list of dof-indices for edges of the cell
         dofs = dofmap.cell_dofs(cell.index())
         for i, facet in enumerate(facets(cell)):
-            # print 'cell: %3g  ||  i: %3g   ||
-            # facet: %3g' % (cell.index(), i, facet.index())
+            # print 'cell: %3g  ||  i: %3g   || facet: %3g || dof[i]: %3g' \
+            #     % (cell.index(), i, facet.index(), dofs[i])
             # corresponding DoFs (2 basisfct per edge)
-            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i] + 1]
+            edgeCRDofArray[facet.index()] = [dofs[i], dofs[i+3]]
+            # edgeCRDofArray[facet.index()] = [dofs[i], dofs[i]+1]
             # every interior edge visited twice but EGAL!
 
     return edgeCRDofArray

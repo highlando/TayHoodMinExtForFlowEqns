@@ -29,6 +29,7 @@ class TimestepParams(object):
         self.UpFiles = UpFiles(method, scheme=scheme)
         self.Residuals = NseResiduals()
         self.linatol = 0  # 1e-4  # 0 for direct sparse solver
+        self.inikryupd = False  # initialization of krylov upd scheme
         self.TolCor = []
         self.MaxIter = 85
         self.Ml = None  # preconditioners
@@ -37,13 +38,13 @@ class TimestepParams(object):
         self.SaveIniVal = False
         self.SaveTStps = False
         self.UsePreTStps = False
-        self.TolCorB = True
+        self.TolCorB = False
 
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
-                        scheme='TH', nu=0):
+                        scheme='TH', nu=0, inikryupd=None):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -103,6 +104,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         TsP.UsePreTStps = UsePreTStps
     if SaveIniVal is not None:
         TsP.SaveIniVal = SaveIniVal
+    if inikryupd is not None:
+        TsP.inikryupd = inikryupd
 
     print 'Mesh parameter N = %d' % N
     print 'Time interval [%d,%1.2f]' % (TsP.t0, TsP.tE)
@@ -224,6 +227,7 @@ def save_simu(TsP, PrP):
     import json
     DictOfVals = {'SpaceDiscParam': PrP.N,
                   'Omega': PrP.omega,
+                  'nu': PrP.nu,
                   'TimeInterval': [TsP.t0, TsP.tE],
                   'TimeDiscs': TsP.Ntslist,
                   'LinaTol': TsP.linatol,
@@ -238,7 +242,7 @@ def save_simu(TsP, PrP):
         TsP.linatol,
         TsP.Ntslist[0],
         TsP.Ntslist[-1],
-        PrP.N) + TsP.method + scheme + '.json'
+        PrP.N) + 'nu{0}'.format(PrP.nu) + TsP.method + scheme + '.json'
 
     f = open(JsFile, 'w')
     f.write(json.dumps(DictOfVals))
@@ -285,11 +289,13 @@ if __name__ == '__main__':
     #                     scheme=scheme)
     method = 1
     nu = 1e-2
-    scheme = 'CR'
-    N = 80
-    solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
-                        MaxIter=100, NtsList=[64, 128],  # , 64],
-                        scheme=scheme)
+    scheme = 'TH'
+    N = 40
+    solve_euler_timedep(method=method, N=N, nu=nu,
+                        LinaTol=2**(-10), 
+                        # LinaTol=0, 
+                        MaxIter=150, NtsList=[64, 128, 256],
+                        scheme=scheme, inikryupd=True)
     # scheme = 'TH'
     # N = 40
     # solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
