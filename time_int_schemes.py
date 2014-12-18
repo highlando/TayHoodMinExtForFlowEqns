@@ -141,7 +141,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             np.dot(qqpq1[Nv:-Npc, ].T.conj(), MPc*qqpq2[Nv:-Npc, ]) + \
             np.dot(qqpq1[-Npc:, ].T.conj(), MPc*qqpq2[-Npc:, ])
 
-    v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=None)
+    v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=PrP.pdof)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
 
@@ -311,14 +311,13 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
+    Bcc, BTcc, MPc, Npc = pinthep(Bc, BTc, MP, PrP.pdof)
 
-    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTc[:, :-1]])
-    IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
+    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTcc])
+    IterAp = CFac*sps.hstack([Bcc, sps.csr_matrix((Npc, Npc))])
     IterA = sps.vstack([IterAv, IterAp])
     if TsP.linatol == 0:
         IterAfac = spsla.factorized(IterA)
-
-    MPc = MP[:-1, :][:, :-1]
 
     vp_old = vp_init
     vp_oldold = vp_old
@@ -327,7 +326,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     # Mvp = sps.csr_matrix(sps.block_diag((Mc, MPc)))
     # Mvp = sps.eye(Mc.shape[0] + MPc.shape[0])
     # Mvp = None
-    # raise Warning('TODO: debug')
 
     # M matrix for the minres routine
     # M accounts for the FEM discretization
@@ -483,11 +481,11 @@ def expand_vp_dolfunc(PrP, vp=None, vc=None, pc=None, pdof=None):
     ve[PrP.invinds] = vc
 
     if pdof is None:
-        pe = np.vstack([pc, [0]])
+        pe = pc
     elif pdof == 0:
         pe = np.vstack([[0], pc])
     elif pdof == -1:
-        pe = pc
+        pe = np.vstack([pc, [0]])
     else:
         pe = np.vstack([pc[:pdof], np.vstack([[0], pc[pdof:]])])
 
@@ -527,3 +525,17 @@ def init_time_stepping(PrP, TsP):
         TsP.NOutPutPts = 1
 
     return Nts, t0, tE, dt, Nv, Np
+
+
+def pinthep(B, BT, M, pdof):
+    """remove dofs of div and grad to pin the pressure
+
+    """
+    if pdof is None:
+        return B, BT, M, B.shape[0]
+    elif pdof == 0:
+        return B[1:, :], BT[:, 1:], M[1:, :][:, 1:], B.shape[0] - 1
+    elif pdof == -1:
+        return B[:-1, :], BT[:, :-1], M[:-1, :][:, :-1], B.shape[0] - 1
+    else:
+        raise NotImplementedError()

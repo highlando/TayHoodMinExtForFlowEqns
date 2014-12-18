@@ -44,7 +44,8 @@ class TimestepParams(object):
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
-                        scheme='TH', nu=0, inikryupd=None):
+                        scheme='TH', nu=0, inikryupd=None,
+                        prob=None):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -61,7 +62,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     if prob == 'cyl':
         femp, stokesmatsc, rhsd_vfrc, \
             rhsd_stbc, data_prfx, ddir, proutdir \
-            = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=100)
+            = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=50)
         Mc, Ac = stokesmatsc['M'], stokesmatsc['A']
         BTc, Bc = stokesmatsc['JT'], stokesmatsc['J']
 
@@ -123,6 +124,11 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
      invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba, fv, fp, PrP.velbcs)
     print 'Nv, Np -- w/o boundary nodes', BTc.shape
 
+    if prob == 'cyl':
+        PrP.Pdof = None  # No p pinning for outflow flow
+    else:
+        PrP.Pdof = 0  # Thats how the smamin is constructed
+
     if method == 1:
         # Rearrange the matrices and rhs
         # from smamin_utils import col_columns_atend
@@ -134,13 +140,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
-
-        PrP.Pdof = 0  # Thats how the smamin is constructed
-
-        # # Fixing the p
-        # FpbcSme = FpbcSme[1:, ]
-        # BSme = BSme[1:, :][:, :]
-        # MPa = MPa[1:, :][:, 1:]
 
         # inivalue
         dname = 'IniValSmaMinN%s' % N
@@ -169,6 +168,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     #
     # starting value
     dimredsys = len(fvbc) + len(fp) - 1
+    # TODO: this should sol(0)
     vp_init = np.zeros((dimredsys, 1))
 
     for i, CurNTs in enumerate(TsP.Ntslist):
@@ -223,7 +223,7 @@ def plot_exactsolution(PrP, TsP):
         p_file << pcur, tcur
 
 
-def save_simu(TsP, PrP):
+def save_simu(TsP, PrP, scheme=''):
     import json
     DictOfVals = {'SpaceDiscParam': PrP.N,
                   'Omega': PrP.omega,
@@ -273,6 +273,7 @@ class UpFiles(object):
                                       "_pressure.pvd")
 
 if __name__ == '__main__':
+    scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
     solve_euler_timedep(method=2, N=2, tE=1.0, LinaTol=0,  # 2**(-12),
@@ -287,15 +288,15 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
     #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
     #                     scheme=scheme)
-    method = 1
-    nu = 1e-2
-    scheme = 'TH'
-    N = 40
-    solve_euler_timedep(method=method, N=N, nu=nu,
-                        LinaTol=2**(-10), 
-                        # LinaTol=0, 
-                        MaxIter=150, NtsList=[64, 128, 256],
-                        scheme=scheme, inikryupd=True)
+    # method = 1
+    # nu = 1e-2
+    # scheme = 'TH'
+    # N = 40
+    # solve_euler_timedep(method=method, N=N, nu=nu,
+    #                     LinaTol=2**(-10),
+    #                     # LinaTol=0,
+    #                     MaxIter=150, NtsList=[64, 128, 256],
+    #                     scheme=scheme, inikryupd=True)
     # scheme = 'TH'
     # N = 40
     # solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
