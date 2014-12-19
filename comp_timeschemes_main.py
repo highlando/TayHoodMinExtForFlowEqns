@@ -11,7 +11,7 @@ import dolfin_to_nparrays as dtn
 import time_int_schemes as tis
 import smartminex_tayhoomesh as smt
 
-from prob_defs import ProbParams
+from prob_defs import ProbParams, FempToProbParams
 
 import dolfin_navier_scipy.problem_setups as dnsps
 
@@ -69,10 +69,12 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
+        PrP = FempToProbParams(N, omega=Omega, nu=nu,
+                               scheme=scheme, femp=femp)
 
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
     else:
-        PrP = ProbParams(N, omega=Omega, nu=0, scheme=scheme)
+        PrP = ProbParams(N, omega=Omega, nu=nu, scheme=scheme)
         # get system matrices as np.arrays
         Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
         fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
@@ -83,8 +85,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
          invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba,
                                               fv, fp, PrP.velbcs)
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
-
-    raise Warning('TODO: debug')
 
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N, scheme=scheme)
@@ -113,16 +113,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     print 'Omega = %d' % TsP.Omega
     print 'You have chosen %s for time integration' % methdict[method]
     print 'The tolerance for the linear solver is %e' % TsP.linatol
-
-    # get system matrices as np.arrays
-    Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q, nu=nu)
-    fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
-    print 'Nv, Np -- w/ boundary nodes', BTa.shape
-
-    # condense the system by resolving the boundary values
-    (Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals,
-     invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba, fv, fp, PrP.velbcs)
-    print 'Nv, Np -- w/o boundary nodes', BTc.shape
 
     if prob == 'cyl':
         PrP.Pdof = None  # No p pinning for outflow flow
@@ -278,6 +268,10 @@ if __name__ == '__main__':
     # dou.logtofile(logstr='logfile3')
     solve_euler_timedep(method=2, N=2, tE=1.0, LinaTol=0,  # 2**(-12),
                         MaxIter=85, NtsList=[16], scheme=scheme, prob='cyl')
+    # , 45, 64,91, 128])
+    # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
+    #                     MaxIter=800, NtsList=[512])
+    # solve_euler_timedep(method=1, N=80, NtsList=[16])
     # , 45, 64,91, 128])
     # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
     #                     MaxIter=800, NtsList=[512])

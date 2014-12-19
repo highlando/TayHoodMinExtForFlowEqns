@@ -411,14 +411,15 @@ def commonEdgeInd(cell1_ind, cell2_ind, mesh):
 # returns the edges corresponding to V_{2,h} as in the Preprint
 #  performs Algorithm 1
 #  define mapping iota: cells -> interior edges
-def computeSmartMinExtMapping(V, mesh, B=None):
+def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
     nr_cells = mesh.num_cells()
-    # T_0 = triangle with sell-index 0
+    # T_0 = triangle with cell-index 0
     # list of remaining triangles
     R = np.arange(nr_cells)
     R = R[1:mesh.num_cells()]
     # list of already visited triangles and selected edges
     T_minus_R = [0]
+    raise Warning('TODO: debug')
     E = []
     # indox of 'last' triangle
     last_T = 0
