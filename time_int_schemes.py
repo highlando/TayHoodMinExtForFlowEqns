@@ -361,6 +361,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
         p1, p2 = vp1[Nv:, ], vp2[Nv:, ]
         return mass_fem_ip(v1, v2, Mc) + mass_fem_ip(p1, p2, MPc)
 
+    inikryupd = TsP.inikryupd
+
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
 
@@ -380,34 +382,41 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
                 TolCor = 0
 
             else:
-                if TsP.TolCorB:
-                    NormRhsInd2 = np.sqrt(ind2_ip(Iterrhs, Iterrhs))[0][0]
-                    TolCor = 1.0 / np.max([NormRhsInd2, 1])
+                if inikryupd:
+                    print '\n1st step with direct solve to initialize krylov\n'
+                    vp_new = spsla.spsolve(IterA, Iterrhs)
+                    vp_old = np.atleast_2d(vp_new).T
+                    TolCor = 0
+                    inikryupd = False  # only once !!
                 else:
-                    TolCor = 1.0
+                    if TsP.TolCorB:
+                        NormRhsInd2 = np.sqrt(ind2_ip(Iterrhs, Iterrhs))[0][0]
+                        TolCor = 1.0 / np.max([NormRhsInd2, 1])
+                    else:
+                        TolCor = 1.0
 
-                curls = krypy.linsys.LinearSystem(IterA, Iterrhs,
-                                                  M=MInv)
+                    curls = krypy.linsys.LinearSystem(IterA, Iterrhs,
+                                                      M=MInv)
 
-                tstart = time.time()
+                    tstart = time.time()
 
-                # extrapolating the initial value
-                upv = (vp_old - vp_oldold)
+                    # extrapolating the initial value
+                    upv = (vp_old - vp_oldold)
 
-                ret = krypy.linsys.Minres(curls,
-                                          maxiter=TsP.MaxIter,
-                                          x0=vp_old + upv,
-                                          tol=TolCor*TsP.linatol
-                                          )
-                tend = time.time()
-                vp_oldold = vp_old
-                vp_old = ret.xk
+                    # ret = krypy.linsys.RestartedGmres(curls,
+                    ret = krypy.linsys.Minres(curls, maxiter=10*TsP.MaxIter,
+                                              x0=vp_old + upv,
+                                              tol=TolCor*TsP.linatol,
+                                              max_restarts=100)
+                    tend = time.time()
+                    vp_oldold = vp_old
+                    vp_old = ret.xk
 
-                print ('Needed {0} of max {1} iterations: ' +
-                       'final relres = {2}\n TolCor was {3}').\
-                    format(len(ret.resnorms), TsP.MaxIter,
-                           ret.resnorms[-1], TolCor)
-                print 'Elapsed time {0}'.format(tend - tstart)
+                    print ('Needed {0} of max {1} iterations: ' +
+                           'final relres = {2}\n TolCor was {3}').\
+                        format(len(ret.resnorms), TsP.MaxIter,
+                               ret.resnorms[-1], TolCor)
+                    print 'Elapsed time {0}'.format(tend - tstart)
 
             vc = vp_old[:Nv, ]
             pc = PFacI*vp_old[Nv:, ]

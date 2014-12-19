@@ -259,7 +259,7 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
     #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
     #                     scheme=scheme)
-    method = 1
+    method = 2
     nu = 1e-2
     scheme = 'TH'
     N = 40
