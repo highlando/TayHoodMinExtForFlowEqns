@@ -87,8 +87,9 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
 
     # instantiate the Time Int Parameters
-    TsP = TimestepParams(methdict[method], N, scheme=scheme)
-
+    TsP = TimestepParams(methdict[method], N, scheme=scheme) 
+   
+ 
     if NtsList is not None:
         TsP.Ntslist = NtsList
     if LinaTol is not None:
@@ -261,6 +262,7 @@ class UpFiles(object):
                                       "_velocity.pvd")
             self.p_file = dolfin.File("results/{0}{1}".format(name, scheme) +
                                       "_pressure.pvd")
+
 
 if __name__ == '__main__':
     scheme = 'CR'
