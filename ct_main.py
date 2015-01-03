@@ -14,6 +14,7 @@ import smartminex_tayhoomesh as smt
 from prob_defs import ProbParams, FempToProbParams
 
 import dolfin_navier_scipy.problem_setups as dnsps
+import dolfin_navier_scipy.stokes_navier_utils as snu
 
 
 class TimestepParams(object):
@@ -63,6 +64,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         femp, stokesmatsc, rhsd_vfrc, \
             rhsd_stbc, data_prfx, ddir, proutdir \
             = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=50)
+
         Mc, Ac = stokesmatsc['M'], stokesmatsc['A']
         MPa = stokesmatsc['MP']
         BTc, Bc = stokesmatsc['JT'], stokesmatsc['J']
@@ -70,7 +72,18 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
+        inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc, ppin=None,
+                        fv_stbc=fvbc, fp_stbc=fpbc, fvc=0*fvbc,
+                        fpr=0*fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
+                        return_vp=True)
+        dimredsys = Bc.shape[1] + Bc.shape[0]
+        vp_init = np.zeros((dimredsys, 1))
+        print vp_init.shape
+        vp_init = snu.solve_steadystate_nse(**inivdict)[0]
+        print vp_init.shape
+
         PrP = FempToProbParams(N, omega=Omega, nu=nu, femp=femp, pdof=None)
+        PrP.Pdof = None  # No p pinning for outflow flow
 
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
     else:
@@ -85,6 +98,11 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
          invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba,
                                               fv, fp, PrP.velbcs)
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
+        PrP.Pdof = 0  # Thats how the smamin is constructed
+
+        dimredsys = Bc.shape[0] + Bc.shape[1]
+        # TODO: this should sol(0)
+        vp_init = np.zeros((dimredsys, 1))
 
     # instantiate the Time Int Parameters
     TsP = TimestepParams(methdict[method], N, scheme=scheme)
@@ -114,11 +132,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     print 'You have chosen %s for time integration' % methdict[method]
     print 'The tolerance for the linear solver is %e' % TsP.linatol
 
-    if prob == 'cyl':
-        PrP.Pdof = None  # No p pinning for outflow flow
-    else:
-        PrP.Pdof = 0  # Thats how the smamin is constructed
-
     if method == 1:
         # Rearrange the matrices and rhs
         # from smamin_utils import col_columns_atend
@@ -139,10 +152,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             vp_init = None
         except IOError:
             qqpq_init = None
-    else:
-        dimredsys = Bc.shape[0] + Bc.shape[1]
-        # TODO: this should sol(0)
-        vp_init = np.zeros((dimredsys, 1))
 
     # Output
     try:
@@ -265,34 +274,4 @@ if __name__ == '__main__':
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
     solve_euler_timedep(method=2, N=2, tE=1.0, LinaTol=0,  # 2**(-12),
-                        MaxIter=85, NtsList=[16], scheme=scheme, prob='cyl')
-    # , 45, 64,91, 128])
-    # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
-    #                     MaxIter=800, NtsList=[512])
-    # solve_euler_timedep(method=1, N=80, NtsList=[16])
-    # , 45, 64,91, 128])
-    # solve_euler_timedep(method=2, N=40, LinaTol=0,  # 2**(-12),
-    #                     MaxIter=800, NtsList=[512])
-    # solve_euler_timedep(method=1, N=80, NtsList=[16])
-    # solve_euler_timedep(method=1, N=80, NtsList=[32])
-    # solve_euler_timedep(method=1, N=80, NtsList=[64])
-    # solve_euler_timedep(method=1, N=20, NtsList=[16])
-    # solve_euler_timedep(method=1, N=50, LinaTol=2**(-10),
-    #                     MaxIter=200, NtsList=[16, 64, 256, 1024],
-    #                     scheme=scheme)
-    # method = 1
-    # nu = 1e-2
-    # scheme = 'TH'
-    # N = 40
-    # solve_euler_timedep(method=method, N=N, nu=nu,
-    #                     LinaTol=2**(-10),
-    #                     # LinaTol=0,
-    #                     MaxIter=150, NtsList=[64, 128, 256],
-    #                     scheme=scheme, inikryupd=True)
-    # scheme = 'TH'
-    # N = 40
-    # solve_euler_timedep(method=method, N=N, LinaTol=0, nu=nu,
-    #                     MaxIter=100, NtsList=[64, 128],  # , 64],
-    #                     scheme=scheme)
-    # solve_euler_timedep(method=1, N=80, NtsList=[32])
-    # solve_euler_timedep(method=1, N=80, NtsList=[64])
+                        MaxIter=85, NtsList=[128], scheme=scheme, prob='cyl')

@@ -141,7 +141,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             np.dot(qqpq1[Nv:-Npc, ].T.conj(), MPc*qqpq2[Nv:-Npc, ]) + \
             np.dot(qqpq1[-Npc:, ].T.conj(), MPc*qqpq2[-Npc:, ])
 
-    v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=PrP.pdof)
+    v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=PrP.Pdof)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
 
@@ -312,7 +312,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
-    Bcc, BTcc, MPc, Npc = pinthep(Bc, BTc, MP, PrP.pdof)
+    Bcc, BTcc, MPc, Npc = pinthep(Bc, BTc, MP, PrP.Pdof)
 
     IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTcc])
     IterAp = CFac*sps.hstack([Bcc, sps.csr_matrix((Npc, Npc))])
@@ -426,13 +426,19 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
             # the errors
             vCur, pCur = PrP.v, PrP.p
-            vCur.t = tcur
-            pCur.t = tcur - dt
+            try:
+                vCur.t = tcur
+                pCur.t = tcur - dt
 
-            ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
-            VelEr.append(errornorm(vCur, v))
-            PEr.append(errornorm(pCur, p))
-            TolCorL.append(TolCor)
+                ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
+                VelEr.append(errornorm(vCur, v))
+                PEr.append(errornorm(pCur, p))
+                TolCorL.append(TolCor)
+            except AttributeError:
+                ContiRes.append(0)
+                VelEr.append(0)
+                PEr.append(0)
+                TolCorL.append(0)
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
 
