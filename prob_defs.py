@@ -63,13 +63,13 @@ def comp_symb_nserhs(u=None, v=None, p=None, nu=None):
 
 class FempToProbParams(object):
 
-    def __init__(self, N, femp=None, omega=None, nu=None, scheme='TH'):
+    def __init__(self, N, femp=None, omega=None, nu=None, pdof=None):
         self.N = N
         self.mesh = femp['mesh']
         self.V = femp['V']
         self.Q = femp['Q']
         self.velbcs = femp['diribcs']
-        self.Pdof = -1  # dof removed in the p approximation
+        self.Pdof = pdof  # dof removed in the p approximation
         self.omega = omega
         self.nu = nu
 
@@ -80,7 +80,7 @@ class FempToProbParams(object):
         # self.vdot = Expression((ccode(du1), ccode(du2)),
 
         # indices of the inner velocity nodes
-        self.invinds = femp['bcinds']
+        self.invinds = femp['invinds']
 
 
 class ProbParams(object):

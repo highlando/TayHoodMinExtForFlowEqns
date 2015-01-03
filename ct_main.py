@@ -70,7 +70,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
         PrP = FempToProbParams(N, omega=Omega, nu=nu,
-                               scheme=scheme, femp=femp)
+                               scheme=scheme, femp=femp, pdof=None)
 
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
     else:
@@ -87,9 +87,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
 
     # instantiate the Time Int Parameters
-    TsP = TimestepParams(methdict[method], N, scheme=scheme) 
-   
- 
+    TsP = TimestepParams(methdict[method], N, scheme=scheme)
+
     if NtsList is not None:
         TsP.Ntslist = NtsList
     if LinaTol is not None:
