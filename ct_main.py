@@ -64,6 +64,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             rhsd_stbc, data_prfx, ddir, proutdir \
             = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=50)
         Mc, Ac = stokesmatsc['M'], stokesmatsc['A']
+        MPa = stokesmatsc['MP']
         BTc, Bc = stokesmatsc['JT'], stokesmatsc['J']
 
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
@@ -138,6 +139,10 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             vp_init = None
         except IOError:
             qqpq_init = None
+    else:
+        dimredsys = Bc.shape[0] + Bc.shape[1]
+        # TODO: this should sol(0)
+        vp_init = np.zeros((dimredsys, 1))
 
     # Output
     try:
@@ -152,25 +157,18 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             os.remove(fname)
         os.chdir('..')
 
-    #
-    # Time stepping
-    #
-    # starting value
-    dimredsys = len(fvbc) + len(fp) - 1
-    # TODO: this should sol(0)
-    vp_init = np.zeros((dimredsys, 1))
-
+    # ## Time stepping ## #
     for i, CurNTs in enumerate(TsP.Ntslist):
         TsP.Nts = CurNTs
 
         if method == 2:
             tis.halfexp_euler_nseind2(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc,
-                                      vp_init, PrP, TsP)
+                                      PrP, TsP, vp_init=vp_init)
         elif method == 1:
             tis.halfexp_euler_smarminex(MSmeCL, ASmeCL, BSme,
                                         MPa, FvbcSme, FpbcSme,
-                                        B2BoolInv, PrP, TsP, vp_init,
-                                        qqpq_init=qqpq_init)
+                                        B2BoolInv, PrP, TsP,
+                                        qqpq_init=qqpq_init, vp_init=vp_init)
 
         # Output only in first iteration!
         TsP.ParaviewOutput = False

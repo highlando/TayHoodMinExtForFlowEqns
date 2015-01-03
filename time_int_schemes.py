@@ -37,7 +37,7 @@ except NameError:
 
 
 def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
-                            PrP, TsP, vp_init, qqpq_init=None):
+                            PrP, TsP, vp_init=None, qqpq_init=None):
     """ halfexplicit euler for the NSE in index 1 formulation
 
     """
@@ -287,7 +287,8 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     return
 
 
-def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
+def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
+                          vp_init=None):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
