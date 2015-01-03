@@ -69,8 +69,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
-        PrP = FempToProbParams(N, omega=Omega, nu=nu,
-                               scheme=scheme, femp=femp, pdof=None)
+        PrP = FempToProbParams(N, omega=Omega, nu=nu, femp=femp, pdof=None)
 
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
     else:
