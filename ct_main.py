@@ -45,7 +45,7 @@ class TimestepParams(object):
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
-                        scheme='TH', nu=0, inikryupd=None,
+                        scheme='TH', nu=0, Re=None, inikryupd=None,
                         prob=None):
     """system to solve
 
@@ -63,7 +63,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     if prob == 'cyl':
         femp, stokesmatsc, rhsd_vfrc, \
             rhsd_stbc, data_prfx, ddir, proutdir \
-            = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=50)
+            = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
+                                scheme=scheme)
 
         Mc, Ac = stokesmatsc['M'], stokesmatsc['A']
         MPa = stokesmatsc['MP']
@@ -77,10 +78,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         fpr=0*fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
                         return_vp=True)
         dimredsys = Bc.shape[1] + Bc.shape[0]
-        vp_init = np.zeros((dimredsys, 1))
-        print vp_init.shape
         vp_init = snu.solve_steadystate_nse(**inivdict)[0]
-        print vp_init.shape
 
         PrP = FempToProbParams(N, omega=Omega, nu=nu, femp=femp, pdof=None)
         PrP.Pdof = None  # No p pinning for outflow flow
@@ -273,5 +271,5 @@ if __name__ == '__main__':
     scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
-    solve_euler_timedep(method=2, N=2, tE=1.0, LinaTol=0,  # 2**(-12),
-                        MaxIter=85, NtsList=[128], scheme=scheme, prob='cyl')
+    solve_euler_timedep(method=2, N=2, tE=1., Re=50, LinaTol=0,  # 2**(-12),
+                        MaxIter=85, NtsList=[512], scheme=scheme, prob='cyl')

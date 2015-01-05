@@ -312,7 +312,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
-    Bcc, BTcc, MPc, Npc = pinthep(Bc, BTc, MP, PrP.Pdof)
+    Bcc, BTcc, MPc, fpbcc, Npc = pinthep(Bc, BTc, MP, fpbc, PrP.Pdof)
 
     IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTcc])
     IterAp = CFac*sps.hstack([Bcc, sps.csr_matrix((Npc, Npc))])
@@ -369,9 +369,9 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
             CurFv = dtn.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
 
             Iterrhs = np.vstack([MFac*1.0/dt*Mc*vp_old[:Nv, ],
-                                 np.zeros((Np - 1, 1))]) +\
+                                 np.zeros((Npc, 1))]) +\
                 np.vstack([MFac*(fvbc + CurFv - ConV[PrP.invinds, ]),
-                           CFac*fpbc[:-1, ]])
+                           CFac*fpbcc])
 
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
@@ -543,15 +543,16 @@ def init_time_stepping(PrP, TsP):
     return Nts, t0, tE, dt, Nv, Np
 
 
-def pinthep(B, BT, M, pdof):
+def pinthep(B, BT, M, fp, pdof):
     """remove dofs of div and grad to pin the pressure
 
     """
     if pdof is None:
-        return B, BT, M, B.shape[0]
+        return B, BT, M, fp, B.shape[0]
     elif pdof == 0:
-        return B[1:, :], BT[:, 1:], M[1:, :][:, 1:], B.shape[0] - 1
+        return B[1:, :], BT[:, 1:], M[1:, :][:, 1:], fp[1:, :], B.shape[0] - 1
     elif pdof == -1:
-        return B[:-1, :], BT[:, :-1], M[:-1, :][:, :-1], B.shape[0] - 1
+        return (B[:-1, :], BT[:, :-1], M[:-1, :][:, :-1],
+                fp[:-1, :], B.shape[0] - 1)
     else:
         raise NotImplementedError()
