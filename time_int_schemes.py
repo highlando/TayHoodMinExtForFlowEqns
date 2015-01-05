@@ -37,7 +37,7 @@ except NameError:
 
 
 def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
-                            PrP, TsP, vp_init, qqpq_init=None):
+                            PrP, TsP, vp_init=None, qqpq_init=None):
     """ halfexplicit euler for the NSE in index 1 formulation
 
     """
@@ -141,7 +141,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             np.dot(qqpq1[Nv:-Npc, ].T.conj(), MPc*qqpq2[Nv:-Npc, ]) + \
             np.dot(qqpq1[-Npc:, ].T.conj(), MPc*qqpq2[-Npc:, ])
 
-    v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=None)
+    v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=PrP.Pdof)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
 
@@ -287,7 +287,8 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     return
 
 
-def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
+def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
+                          vp_init=None):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
@@ -311,14 +312,13 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
+    Bcc, BTcc, MPc, fpbcc, Npc = pinthep(Bc, BTc, MP, fpbc, PrP.Pdof)
 
-    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTc[:, :-1]])
-    IterAp = CFac*sps.hstack([Bc[:-1, :], sps.csr_matrix((Np-1, Np-1))])
+    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTcc])
+    IterAp = CFac*sps.hstack([Bcc, sps.csr_matrix((Npc, Npc))])
     IterA = sps.vstack([IterAv, IterAp])
     if TsP.linatol == 0:
         IterAfac = spsla.factorized(IterA)
-
-    MPc = MP[:-1, :][:, :-1]
 
     vp_old = vp_init
     vp_oldold = vp_old
@@ -327,7 +327,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
     # Mvp = sps.csr_matrix(sps.block_diag((Mc, MPc)))
     # Mvp = sps.eye(Mc.shape[0] + MPc.shape[0])
     # Mvp = None
-    # raise Warning('TODO: debug')
 
     # M matrix for the minres routine
     # M accounts for the FEM discretization
@@ -370,9 +369,9 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
             CurFv = dtn.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
 
             Iterrhs = np.vstack([MFac*1.0/dt*Mc*vp_old[:Nv, ],
-                                 np.zeros((Np - 1, 1))]) +\
+                                 np.zeros((Npc, 1))]) +\
                 np.vstack([MFac*(fvbc + CurFv - ConV[PrP.invinds, ]),
-                           CFac*fpbc[:-1, ]])
+                           CFac*fpbcc])
 
             if TsP.linatol == 0:
                 # ,vp_old,tol=TsP.linatol)
@@ -403,11 +402,11 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
                     # extrapolating the initial value
                     upv = (vp_old - vp_oldold)
 
-                    # ret = krypy.linsys.RestartedGmres(curls,
-                    ret = krypy.linsys.Minres(curls, maxiter=10*TsP.MaxIter,
-                                              x0=vp_old + upv,
-                                              tol=TolCor*TsP.linatol,
-                                              max_restarts=100)
+                    ret = krypy.linsys.RestartedGmres(curls,
+                                                      maxiter=TsP.MaxIter,
+                                                      x0=vp_old + upv,
+                                                      tol=TolCor*TsP.linatol,
+                                                      max_restarts=100)
                     tend = time.time()
                     vp_oldold = vp_old
                     vp_old = ret.xk
@@ -427,13 +426,19 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP):
 
             # the errors
             vCur, pCur = PrP.v, PrP.p
-            vCur.t = tcur
-            pCur.t = tcur - dt
+            try:
+                vCur.t = tcur
+                pCur.t = tcur - dt
 
-            ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
-            VelEr.append(errornorm(vCur, v))
-            PEr.append(errornorm(pCur, p))
-            TolCorL.append(TolCor)
+                ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
+                VelEr.append(errornorm(vCur, v))
+                PEr.append(errornorm(pCur, p))
+                TolCorL.append(TolCor)
+            except AttributeError:
+                ContiRes.append(0)
+                VelEr.append(0)
+                PEr.append(0)
+                TolCorL.append(0)
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
 
@@ -492,11 +497,11 @@ def expand_vp_dolfunc(PrP, vp=None, vc=None, pc=None, pdof=None):
     ve[PrP.invinds] = vc
 
     if pdof is None:
-        pe = np.vstack([pc, [0]])
+        pe = pc
     elif pdof == 0:
         pe = np.vstack([[0], pc])
     elif pdof == -1:
-        pe = pc
+        pe = np.vstack([pc, [0]])
     else:
         pe = np.vstack([pc[:pdof], np.vstack([[0], pc[pdof:]])])
 
@@ -536,3 +541,18 @@ def init_time_stepping(PrP, TsP):
         TsP.NOutPutPts = 1
 
     return Nts, t0, tE, dt, Nv, Np
+
+
+def pinthep(B, BT, M, fp, pdof):
+    """remove dofs of div and grad to pin the pressure
+
+    """
+    if pdof is None:
+        return B, BT, M, fp, B.shape[0]
+    elif pdof == 0:
+        return B[1:, :], BT[:, 1:], M[1:, :][:, 1:], fp[1:, :], B.shape[0] - 1
+    elif pdof == -1:
+        return (B[:-1, :], BT[:, :-1], M[:-1, :][:, :-1],
+                fp[:-1, :], B.shape[0] - 1)
+    else:
+        raise NotImplementedError()
