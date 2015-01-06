@@ -14,5 +14,6 @@ femp, stokesmatsc, rhsd_vfrc, \
 mesh = femp['mesh']
 edgepoint = dolfin.Point(2.2, .41)
 aaac = mesh.bounding_box_tree().compute_first_entity_collision(edgepoint)
+print 'Cell id at boundary: ', aaac
 dolfin.plot(mesh)
 dolfin.interactive(True)

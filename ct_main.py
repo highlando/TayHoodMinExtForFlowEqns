@@ -136,7 +136,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         from scipy.io import loadmat
 
         MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
-            get_smamin_rearrangement(N, PrP, M=Mc, A=Ac,
+            get_smamin_rearrangement(N, PrP, M=Mc, A=Ac, crinicell=2386,
                                      B=Bc, scheme=scheme, fullB=None)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])

@@ -5,7 +5,7 @@ import scipy.sparse as sps
 
 
 def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
-                             scheme='TH', fullB=None):
+                             scheme='TH', fullB=None, crinicell=None):
     from smamin_utils import col_columns_atend
     from scipy.io import loadmat, savemat
     """ rearrange `B` and `M` for smart minimal extension
@@ -20,6 +20,8 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
          * 'TH' : Taylor-Hood
          * 'CR' : Crouzeix-Raviart
 
+    crinicell : int, optional
+        the starting cell for the 'CR' scheme, defaults to `0`
 
     Returns
     -------
@@ -47,7 +49,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
         dname = 'SmeMcBc_N{0}_CR'.format(N)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
-        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q,
+        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q, inicell=crinicell,
                     B_matrix=B, invinds=PrP.invinds)
 
     try:
@@ -413,16 +415,17 @@ def commonEdgeInd(cell1_ind, cell2_ind, mesh):
 #  define mapping iota: cells -> interior edges
 def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
     nr_cells = mesh.num_cells()
-    # T_0 = triangle with cell-index 0
+    # T_0 = starting triangle with given cell-index
+    # list of already visited triangles and selected edges
+    T_minus_R = [Tzero]
     # list of remaining triangles
     R = np.arange(nr_cells)
-    R = R[1:mesh.num_cells()]
-    # list of already visited triangles and selected edges
-    T_minus_R = [0]
+    R = R[R != Tzero]  # TODO: this can be done efficiently since R is sortd
+    # R = R[1:mesh.num_cells()]
     raise Warning('TODO: debug')
     E = []
-    # indox of 'last' triangle
-    last_T = 0
+    # index of 'last' triangle
+    last_T = Tzero
 
     # loop until to triangles are left
     print 'Enter while loop'
@@ -432,11 +435,11 @@ def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
         # only adjacent cells which are also in R
         adm_adj_cells = np.intersect1d(adj_cells_last_T, R)
 
-        # it can happen that there is no neoghboring triangle in R
+        # it can happen that there is no neighboring triangle in R
         # then we have to reset last_T
         if len(adm_adj_cells) < 1:
             print ' - Couldnt find adjacent triangles. Have to reset last_T.'
-            found_new_triangle = 0
+            found_new_triangle = False
             counter = 0
             while not found_new_triangle:
                 test_T = T_minus_R[counter]
@@ -445,7 +448,7 @@ def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
                 # print np.intersect1d(adj_cells_test_T, R)
                 if len(np.intersect1d(adj_cells_test_T, R)) > 0:
                     print ' - - YES! I found a new triangle.'
-                    found_new_triangle = 1
+                    found_new_triangle = True
                     last_T = test_T
                     adm_adj_cells = np.intersect1d(adj_cells_test_T, R)
                 counter = counter + 1
@@ -453,7 +456,7 @@ def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
         # if there exists at least one admissible neighbor: get common edge
         new_T = int(adm_adj_cells[0])
         print 'old Tri %3g and new found Tri %3g' % (last_T, new_T)
-        R = R[R != new_T]
+        R = R[R != new_T]  # TODO: this can be done more efficient R is sorted
         T_minus_R = np.append(T_minus_R, new_T)
         comm_edge = commonEdgeInd(last_T, new_T, mesh)
         # update range(iota), i.e., list of edges
@@ -465,7 +468,7 @@ def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
 
 
 def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
-                  Q=None):
+                  Q=None, inicell=0):
     """compute the indices of dofs that set up
     the invertible B2. This function is specific for CR elements."""
 
@@ -474,7 +477,8 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
     # koennte man vermutlich auch eleganter ohne die B Matrix machen
 
     # apply algorithm from Preprint
-    edges_V2, pdoflist = computeSmartMinExtMapping(V, mesh, B=B_matrix)
+    edges_V2, pdoflist = computeSmartMinExtMapping(V, mesh, B=B_matrix,
+                                                   Tzero=inicell)
     # get corresponding degrees of freedom of the CR-scheme
     print 'corresponding DoF for CR'
     edgeCRDofArray = computeEdgeCRDofArray(V, mesh, B=B_matrix)
