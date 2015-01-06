@@ -9,10 +9,10 @@ aaa = mesh.bounding_box_tree().compute_first_entity_collision(edgepoint)
 
 femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
-    = dnsps.get_sysmats(problem='cylinderwake', N=2, Re=2, scheme='CR')
+    = dnsps.get_sysmats(problem='cylinderwake', N=1, Re=2, scheme='CR')
 
 mesh = femp['mesh']
-edgepoint = dolfin.Point(2.2, .41)
+edgepoint = dolfin.Point(2.5, .2)
 aaac = mesh.bounding_box_tree().compute_first_entity_collision(edgepoint)
 print 'Cell id at boundary: ', aaac
 dolfin.plot(mesh)

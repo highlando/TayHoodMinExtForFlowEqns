@@ -4,7 +4,7 @@ import numpy.linalg as npla
 import scipy.sparse as sps
 
 
-def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
+def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
                              scheme='TH', fullB=None, crinicell=None):
     from smamin_utils import col_columns_atend
     from scipy.io import loadmat, savemat
@@ -22,6 +22,8 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
 
     crinicell : int, optional
         the starting cell for the 'CR' scheme, defaults to `0`
+    addnedge : int, optional
+        whether to add a Neumann edge in the CR scheme, defaults to `None`
 
     Returns
     -------
@@ -54,12 +56,24 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
 
     try:
         SmDic = loadmat(dname)
-        pdoflist = loadmat(dname+'pdoflist')
+        pdoflist = loadmat(dname+'pdoflist')  # TODO enable saving again
 
     except IOError:
         print 'Computing the B2 indices...'
         # get the indices of the B2-part
         B2Inds, pdoflist = get_b2inds_rtn(**args)
+        if addnedgeat is not None:
+            # TODO: hard coded filtering of the needed V bas func
+            # list of columns that have a nnz at cell #addnedge
+            potcols = fullB[addnedgeat, :].indices
+            for col in potcols:
+                # TODO here we need B
+                if fullB[:, col].nnz == 1:
+                    coltoadd = col
+                    break
+            B2Inds = np.r_[coltoadd, B2Inds]
+            # end TODO
+
         # the B2 inds wrt to inner nodes
         # this gives a masked array of boolean type
         B2BoolInv = np.in1d(np.arange(PrP.V.dim())[PrP.invinds], B2Inds)
@@ -104,12 +118,22 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
         pdoflist = None
     only_check_cond = False
     if only_check_cond:
-        B2 = BSme[1:, :][:, -B2Inds.size:]
-        print 'condition number is ', npla.cond(B2.todense())
+        if PrP.Pdof is None:
+            B2 = BSme[:, :][:, -B2Inds.size:]
+            B2res = fullB[pdoflist.flatten(), :][:, B2Inds.flatten()]
+            # B2res = BSme[pdoflist.flatten(), :][:, -B2Inds.size:]
+        elif PrP.Pdof == 0:
+            B2 = BSme[1:, :][:, -B2Inds.size:]
+        else:
+            raise NotImplementedError()
+        print 'condition number is ', npla.cond(B2res.todense())
         print 'N is ', N
+        print 'B2 shape is ', B2.shape
         import matplotlib.pylab as pl
         pl.figure(1)
         pl.spy(B2)
+        pl.figure(2)
+        pl.spy(B2res)  # [:100, :][:, :100])
         pl.show(block=False)
         import sys
         sys.exit('done')
@@ -422,7 +446,6 @@ def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
     R = np.arange(nr_cells)
     R = R[R != Tzero]  # TODO: this can be done efficiently since R is sortd
     # R = R[1:mesh.num_cells()]
-    raise Warning('TODO: debug')
     E = []
     # index of 'last' triangle
     last_T = Tzero
@@ -506,3 +529,7 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
     return dof_for_regular_B2, pdoflist
+
+
+def get_cellid_nexttopoint(mesh, point):
+    return mesh.bounding_box_tree().compute_first_entity_collision(point)

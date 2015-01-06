@@ -69,6 +69,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         Mc, Ac = stokesmatsc['M'], stokesmatsc['A']
         MPa = stokesmatsc['MP']
         BTc, Bc = stokesmatsc['JT'], stokesmatsc['J']
+        Ba = stokesmatsc['Jfull']
 
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
@@ -135,9 +136,28 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         # from smamin_utils import col_columns_atend
         from scipy.io import loadmat
 
+        if prob == 'cyl' and scheme == 'CR':
+            if N == 0:
+                cricell = 758
+            elif N == 1:
+                cricell = 1498
+            elif N == 2:
+                cricell = 2386
+            else:
+                raise NotImplementedError()
+            # TODO: this is hard coded...
+            # dptatnb = dolfin.Point(2.2, 0.2)
+            # cricell = smt.get_cellid_nexttopoint(PrP.mesh, dptatnb)
+
+        elif prob == 'cyl':
+            raise NotImplementedError()
+        else:
+            cricell = None
+
         MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
-            get_smamin_rearrangement(N, PrP, M=Mc, A=Ac, crinicell=2386,
-                                     B=Bc, scheme=scheme, fullB=None)
+            get_smamin_rearrangement(N, PrP, M=Mc, A=Ac, B=Bc,
+                                     crinicell=cricell, addnedgeat=cricell,
+                                     scheme=scheme, fullB=Ba)
 
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
@@ -271,14 +291,14 @@ if __name__ == '__main__':
     scheme = 'CR'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
-    # solve_euler_timedep(method=2, N=2, tE=1., Re=50, LinaTol=0,  # 2**(-12),
-    #                     MaxIter=85, NtsList=[512], scheme=scheme, prob='cyl')
-    method = 2
-    nu = 1e-2
-    scheme = 'TH'
-    N = 40
-    solve_euler_timedep(method=method, N=N, nu=nu,
-                        LinaTol=2**(-10),
-                        # LinaTol=0,
-                        MaxIter=225, NtsList=[128, 256],
-                        scheme=scheme, inikryupd=True)
+    solve_euler_timedep(method=1, N=2, tE=1., Re=50, LinaTol=0,  # 2**(-12),
+                        MaxIter=85, NtsList=[512], scheme=scheme, prob='cyl')
+    # method = 2
+    # nu = 1e-2
+    # scheme = 'TH'
+    # N = 40
+    # solve_euler_timedep(method=method, N=N, nu=nu,
+    #                     LinaTol=2**(-10),
+    #                     # LinaTol=0,
+    #                     MaxIter=225, NtsList=[128, 256],
+    #                     scheme=scheme, inikryupd=True)
