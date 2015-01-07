@@ -30,16 +30,18 @@ class TimestepParams(object):
         self.UpFiles = UpFiles(method, scheme=scheme)
         self.Residuals = NseResiduals()
         self.linatol = 0  # 1e-4  # 0 for direct sparse solver
-        self.inikryupd = False  # initialization of krylov upd scheme
+        self.inikryupd = True  # initialization of krylov upd scheme
         self.TolCor = []
         self.MaxIter = 85
         self.Ml = None  # preconditioners
         self.Mr = None
-        self.ParaviewOutput = True
+        self.ParaviewOutput = False
         self.SaveIniVal = False
         self.SaveTStps = False
         self.UsePreTStps = False
         self.TolCorB = False
+        self.svdatatdsc = True
+        self.svdatapath = 'data/'
 
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
@@ -294,12 +296,24 @@ if __name__ == '__main__':
     N = 2
     Re = 50
     prob = 'cyl'
-    # import dolfin_navier_scipy.data_output_utils as dou
-    # dou.logtofile(logstr='logfile3')
+    Ntslist = [256, 512, 1024, 2048]
+    import dolfin_navier_scipy.data_output_utils as dou
+    dou.logtofile(logstr='logfile3')
+    # solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=2**(-12),
+    #                     MaxIter=100,
+    #                     N=N, NtsList=[512], scheme=scheme, prob=prob)
     solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
-                        N=N, NtsList=[512], scheme=scheme, prob=prob)
-    solve_euler_timedep(method=2, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
-                        N=N, NtsList=[512], scheme=scheme, prob=prob)
+                        MaxIter=100,
+                        N=N, NtsList=[4096], scheme=scheme, prob=prob)
+
+    solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=2**(-12),
+                        MaxIter=100,
+                        N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+
+    solve_euler_timedep(method=2, tE=1., Re=Re, LinaTol=2**(-12),
+                        MaxIter=100,
+                        N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+
     # method = 2
     # nu = 1e-2
     # scheme = 'TH'

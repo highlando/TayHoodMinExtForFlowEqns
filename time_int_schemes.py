@@ -44,7 +44,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     """
 
     N = PrP.Pdof
-    Nts, t0, tE, dt, Nv, Npp = init_time_stepping(PrP, TsP)
+    Nts, t0, tE, dt, Nv = init_time_stepping(PrP, TsP)
     tcur = t0
     # remove the p - freedom
     BSme, BTSme, MPc, FpbcSmeC, vp_init, Npc\
@@ -136,6 +136,19 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=PrP.Pdof)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
+
+    if TsP.svdatatdsc:
+        dtstrdct = dict(prefix=TsP.svdatapath, method=1, N=PrP.N,
+                        nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol)
+        cdatstr = get_dtstr(t=0, **dtstrdct)
+        try:
+            np.load(cdatstr + '.npy')
+        except IOError:
+            np.save(cdatstr, vp_init)
+            print 'saving to ', cdatstr, ' ...'
+        else:
+            print '\n yayayayy looks like we already went through \n', cdatstr
+            return
 
     vp_old = np.copy(vp_init)
     q1_old = vp_init[~B2BoolInv, ]
@@ -249,16 +262,25 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=PrP.Pdof)
 
             tcur += dt
+            if TsP.svdatatdsc:
+                cdatstr = get_dtstr(t=tcur, **dtstrdct)
+                np.save(cdatstr, np.vstack([vc, pc]))
 
             # the errors and residuals
-            # vCur, pCur = PrP.v, PrP.p
-            # vCur.t = tcur
-            # pCur.t = tcur - dt
+            try:
+                vCur, pCur = PrP.v, PrP.p
+                vCur.t = tcur
+                pCur.t = tcur - dt
 
-            # ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
-            # VelEr.append(errornorm(vCur, v))
-            # PEr.append(errornorm(pCur, p))
-            # TolCorL.append(TolCor)
+                ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+                VelEr.append(errornorm(vCur, v))
+                PEr.append(errornorm(pCur, p))
+                TolCorL.append(TolCor)
+            except AttributeError:
+                ContiRes.append(0)
+                VelEr.append(0)
+                PEr.append(0)
+                TolCorL.append(0)
 
             if i + etap == 1 and TsP.SaveIniVal:
                 from scipy.io import savemat
@@ -292,7 +314,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     #
     #
 
-    Nts, t0, tE, dt, Nv, Np = init_time_stepping(PrP, TsP)
+    Nts, t0, tE, dt, Nv = init_time_stepping(PrP, TsP)
 
     tcur = t0
 
@@ -339,8 +361,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         return np.vstack([Mv, Mp])
 
     MInv = spsla.LinearOperator(
-        (Nv + Np - 1,
-         Nv + Np - 1),
+        (Nv + Npc,
+         Nv + Npc),
         matvec=_MInv,
         dtype=np.float32)
 
@@ -395,11 +417,14 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                     # extrapolating the initial value
                     upv = (vp_old - vp_oldold)
 
-                    ret = krypy.linsys.RestartedGmres(curls,
-                                                      maxiter=TsP.MaxIter,
-                                                      x0=vp_old + upv,
-                                                      tol=TolCor*TsP.linatol,
-                                                      max_restarts=100)
+                    # ret = krypy.linsys.RestartedGmres(curls,
+                    #                                   maxiter=TsP.MaxIter,
+                    #                                   x0=vp_old + upv,
+                    #                                   tol=TolCor*TsP.linatol,
+                    #                                   max_restarts=100)
+                    ret = krypy.linsys.Minres(curls, maxiter=20*TsP.MaxIter,
+                                              x0=vp_old + upv,
+                                              tol=TolCor*TsP.linatol)
                     tend = time.time()
                     vp_oldold = vp_old
                     vp_old = ret.xk
@@ -528,12 +553,11 @@ def init_time_stepping(PrP, TsP):
     Nts, t0, tE = TsP.Nts, TsP.t0, TsP.tE
     dt = (tE - t0) / Nts
     Nv = len(PrP.invinds)
-    Np = PrP.Q.dim()
 
     if Nts % TsP.NOutPutPts != 0:
         TsP.NOutPutPts = 1
 
-    return Nts, t0, tE, dt, Nv, Np
+    return Nts, t0, tE, dt, Nv
 
 
 def pinthep(B, BT, M, fp, vp_init, pdof):
@@ -552,3 +576,9 @@ def pinthep(B, BT, M, fp, vp_init, pdof):
                 fp[:-1, :], vp_init[:-1, :], NP - 1)
     else:
         raise NotImplementedError()
+
+
+def get_dtstr(t=None, prefix='', method=None, N=None,
+              nu=None, Nts=None, tol=None, **kwargs):
+    return prefix + '_m{0}_N{1}_nu{2}_Nts{3}_tol_{4}_t{5}'.\
+        format(method, N, nu, Nts, tol, t)
