@@ -54,15 +54,11 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     B1Sme = BSme[:, :-Npc]
     B2Sme = BSme[:, -Npc:]
 
-    print 'Cond of B2: ', np.linalg.cond(B2Sme.todense())
-
     M1Sme = MSme[:, :-Npc]
     M2Sme = MSme[:, -Npc:]
 
     A1Sme = ASme[:, :-Npc]
     A2Sme = ASme[:, -Npc:]
-
-    print 'Norm of A: ', np.linalg.norm(ASme.todense())
 
     # The matrix to be solved in every time step
     #
@@ -177,14 +173,13 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
                                           WCD*B1Sme*q1_old]) +\
                 np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
-            Iterrhs = np.vstack([Iterrhs, FpbcSmeC])
+            Iterrhs = np.vstack([Iterrhs, WC*FpbcSmeC])
 
             if TsP.linatol == 0:
                 # q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
                 q1_tq2_p_q2_new = IterAfac(Iterrhs.flatten())
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                 TolCor = 0
-                print np.linalg.norm(qqpq_old)
             else:
                 if inikryupd:
                     print '\n1st step with direct solve to initialize krylov\n'
@@ -305,8 +300,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     CFac = 1  # /dt
     # PFac = -1  # -1 for symmetry (if CFac==1)
     PFacI = -1./dt
-
-    print 'Norm of A: ', np.linalg.norm(Ac.todense())
 
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur

@@ -81,11 +81,13 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         dimredsys = Bc.shape[1] + Bc.shape[0]
         vp_init = snu.solve_steadystate_nse(**inivdict)[0]
 
-        PrP = FempToProbParams(N, omega=Omega, nu=nu, femp=femp, pdof=None)
+        PrP = FempToProbParams(N, omega=Omega, femp=femp, pdof=None)
         PrP.Pdof = None  # No p pinning for outflow flow
 
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
     else:
+        if Re is not None:
+            nu = 1./Re
         PrP = ProbParams(N, omega=Omega, nu=nu, scheme=scheme)
         # get system matrices as np.arrays
         Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q, nu=nu)
@@ -289,16 +291,15 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     scheme = 'CR'
-    N = 20
-    Re = None
+    N = 2
+    Re = 50
+    prob = 'cyl'
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
     solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
-                        # N=1, NtsList=[16], scheme=scheme, prob='cyl')
-                        N=N, NtsList=[16], scheme=scheme)
+                        N=N, NtsList=[512], scheme=scheme, prob=prob)
     solve_euler_timedep(method=2, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
-                        # N=1, NtsList=[16], scheme=scheme, prob='cyl')
-                        N=N, NtsList=[16], scheme=scheme)
+                        N=N, NtsList=[512], scheme=scheme, prob=prob)
     # method = 2
     # nu = 1e-2
     # scheme = 'TH'

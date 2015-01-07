@@ -63,7 +63,7 @@ def comp_symb_nserhs(u=None, v=None, p=None, nu=None):
 
 class FempToProbParams(object):
 
-    def __init__(self, N, femp=None, omega=None, nu=None, pdof=None):
+    def __init__(self, N, femp=None, omega=None, pdof=None):
         self.N = N
         self.mesh = femp['mesh']
         self.V = femp['V']
@@ -71,7 +71,7 @@ class FempToProbParams(object):
         self.velbcs = femp['diribcs']
         self.Pdof = pdof  # dof removed in the p approximation
         self.omega = omega
-        self.nu = nu
+        self.nu = femp['nu']
 
         self.v = None
         self.p = None
