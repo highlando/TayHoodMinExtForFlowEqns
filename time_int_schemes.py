@@ -7,6 +7,12 @@ from scipy.io import loadmat
 import dolfin_to_nparrays as dtn
 import time
 
+__all__ = ['halfexp_euler_smarminex',
+           'halfexp_euler_nseind2',
+           'comp_cont_error',
+           'expand_vp_dolfunc',
+           'get_conv_curfv_rearr',
+           'pinthep']
 try:
     import krypy.linsys
 except ImportError:
@@ -37,10 +43,13 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     """
 
-    N, Pdof = PrP.N, PrP.Pdof
+    N = PrP.Pdof
     Nts, t0, tE, dt, Nv, Np = init_time_stepping(PrP, TsP)
     tcur = t0
     # remove the p - freedom
+    BSme, BTSme, MPc, FpbcSmeC, vp_init, Npc\
+        = pinthep(BSme, BSme.T, MP, FpbcSme, vp_init, PrP.Pdof)
+
     if Pdof == 0:
         BSme = BSme[1:, :]
         FpbcSmeC = FpbcSme[1:, ]
