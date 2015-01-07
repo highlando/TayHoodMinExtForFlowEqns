@@ -11,11 +11,6 @@ try:
     import krypy.linsys
 except ImportError:
     pass  # No krypy -- I hope we don't need it
-#
-# solve M\dot v + K(v) -B'p = fv
-#                 Bv      = fpbc
-#
-
 
 try:
     def mass_fem_ip(q1, q2, M):
