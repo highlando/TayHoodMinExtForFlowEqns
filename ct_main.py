@@ -88,7 +88,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     else:
         PrP = ProbParams(N, omega=Omega, nu=nu, scheme=scheme)
         # get system matrices as np.arrays
-        Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q)
+        Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q, nu=nu)
         fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
         print 'Nv, Np -- w/ boundary nodes', BTa.shape
 
@@ -289,10 +289,16 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     scheme = 'CR'
+    N = 20
+    Re = None
     # import dolfin_navier_scipy.data_output_utils as dou
     # dou.logtofile(logstr='logfile3')
-    solve_euler_timedep(method=1, N=2, tE=1., Re=50, LinaTol=0,  # 2**(-12),
-                        MaxIter=85, NtsList=[512], scheme=scheme, prob='cyl')
+    solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
+                        # N=1, NtsList=[16], scheme=scheme, prob='cyl')
+                        N=N, NtsList=[16], scheme=scheme)
+    solve_euler_timedep(method=2, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
+                        # N=1, NtsList=[16], scheme=scheme, prob='cyl')
+                        N=N, NtsList=[16], scheme=scheme)
     # method = 2
     # nu = 1e-2
     # scheme = 'TH'

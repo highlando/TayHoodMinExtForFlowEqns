@@ -48,7 +48,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
     elif scheme == 'CR':
         print 'solving index 1 -- with CR scheme'
-        dname = 'SmeMcBc_N{0}_CR'.format(N)
+        dname = 'SmeMcBc_N{0}nu{1}_CR'.format(N, PrP.nu)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q, inicell=crinicell,
@@ -138,7 +138,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
         import sys
         sys.exit('done')
 
-    if fullB is not None:
+    if fullB is not None and only_check_cond:
         fbsme = col_columns_atend(fullB, B2Inds.flatten())
         import matplotlib.pylab as pl
         pl.figure(2)
@@ -437,15 +437,19 @@ def commonEdgeInd(cell1_ind, cell2_ind, mesh):
 # returns the edges corresponding to V_{2,h} as in the Preprint
 #  performs Algorithm 1
 #  define mapping iota: cells -> interior edges
-def computeSmartMinExtMapping(V, mesh, B=None, Tzero=0):
+def computeSmartMinExtMapping(V, mesh, B=None, Tzero=None):
     nr_cells = mesh.num_cells()
     # T_0 = starting triangle with given cell-index
     # list of already visited triangles and selected edges
+    if Tzero is None:
+        Tzero = 0
     T_minus_R = [Tzero]
     # list of remaining triangles
     R = np.arange(nr_cells)
-    R = R[R != Tzero]  # TODO: this can be done efficiently since R is sortd
-    # R = R[1:mesh.num_cells()]
+    if Tzero == 0:
+        R = R[1:mesh.num_cells()]
+    else:
+        R = R[R != Tzero]  # TODO: do this efficiently since R is sortd
     E = []
     # index of 'last' triangle
     last_T = Tzero

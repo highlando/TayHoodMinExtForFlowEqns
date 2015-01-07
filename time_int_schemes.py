@@ -44,29 +44,25 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     """
 
     N = PrP.Pdof
-    Nts, t0, tE, dt, Nv, Np = init_time_stepping(PrP, TsP)
+    Nts, t0, tE, dt, Nv, Npp = init_time_stepping(PrP, TsP)
     tcur = t0
     # remove the p - freedom
     BSme, BTSme, MPc, FpbcSmeC, vp_init, Npc\
         = pinthep(BSme, BSme.T, MP, FpbcSme, vp_init, PrP.Pdof)
 
-    if Pdof == 0:
-        BSme = BSme[1:, :]
-        FpbcSmeC = FpbcSme[1:, ]
-        MPc = MP[1:, :][:, 1:]
-    else:
-        BSme = sps.vstack([BSme[:Pdof, :], BSme[Pdof+1:, :]])
+    # split the coeffs
+    B1Sme = BSme[:, :-Npc]
+    B2Sme = BSme[:, -Npc:]
 
-    Npc = Np - 1
+    print 'Cond of B2: ', np.linalg.cond(B2Sme.todense())
 
-    B1Sme = BSme[:, :Nv - (Np - 1)]
-    B2Sme = BSme[:, Nv - (Np - 1):]
+    M1Sme = MSme[:, :-Npc]
+    M2Sme = MSme[:, -Npc:]
 
-    M1Sme = MSme[:, :Nv - (Np - 1)]
-    M2Sme = MSme[:, Nv - (Np - 1):]
+    A1Sme = ASme[:, :-Npc]
+    A2Sme = ASme[:, -Npc:]
 
-    A1Sme = ASme[:, :Nv - (Np - 1)]
-    A2Sme = ASme[:, Nv - (Np - 1):]
+    print 'Norm of A: ', np.linalg.norm(ASme.todense())
 
     # The matrix to be solved in every time step
     #
@@ -94,14 +90,10 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     IterA1 = MFac*sps.hstack([1.0/dt*M1Sme + A1Sme, M2Sme,
                               -PFacI*BSme.T, A2Sme])
     IterA2 = WCD*sps.hstack([1.0/dt*B1Sme, B2Sme,
-                             sps.csr_matrix((Np-1, 2*(Np-1)))])
-    IterA3 = WC*sps.hstack([B1Sme, sps.csr_matrix((Np-1, 2*(Np-1))), B2Sme])
+                             sps.csr_matrix((Npc, 2*Npc))])
+    IterA3 = WC*sps.hstack([B1Sme, sps.csr_matrix((Npc, 2*Npc)), B2Sme])
 
     IterA = sps.vstack([IterA1, IterA2, IterA3])
-
-    # IterA = sps.vstack([
-    #     sps.hstack([IterASp, sps.csr_matrix((Nv + Np - 1, Np - 1))]),
-    #     IterA3])
 
     if TsP.linatol == 0:
         IterAfac = spsla.factorized(IterA)
@@ -110,7 +102,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     #
     if TsP.SadPtPrec:
         MLump = np.atleast_2d(MSme.diagonal()).T
-        MLump2 = MLump[-(Np - 1):, ]
+        MLump2 = MLump[-Npc:, ]
         MLumpI = 1. / MLump
         # MLumpI1 = MLumpI[:-(Np - 1), ]
         # MLumpI2 = MLumpI[-(Np - 1):, ]
@@ -118,21 +110,21 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
         def PrecByB2(qqpq):
             qq = MLumpI*qqpq[:Nv, ]
 
-            p = qqpq[Nv:-(Np - 1), ]
+            p = qqpq[Nv:-Npc, ]
             p = spsla.spsolve(B2Sme, p)
             p = MLump2*np.atleast_2d(p).T
             p = spsla.spsolve(B2Sme.T, p)
             p = np.atleast_2d(p).T
 
-            q2 = qqpq[-(Np - 1):, ]
+            q2 = qqpq[-Npc:, ]
             q2 = spsla.spsolve(B2Sme, q2)
             q2 = np.atleast_2d(q2).T
 
             return np.vstack([np.vstack([qq, -p]), q2])
 
         MGmr = spsla.LinearOperator(
-            (Nv + 2*(Np - 1),
-             Nv + 2*(Np - 1)),
+            (Nv + 2*Npc,
+             Nv + 2*Npc),
             matvec=PrecByB2,
             dtype=np.float32)
         TsP.Ml = MGmr
@@ -156,15 +148,15 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     if qqpq_init is None and TsP.linatol > 0:
         # initial value for tq2
         ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
-        tq2_old = spsla.spsolve(M2Sme[-(Np-1):, :], CurFv[-(Np-1):, ])
+        tq2_old = spsla.spsolve(M2Sme[-Npc:, :], CurFv[-Npc:, ])
         # tq2_old = MLumpI2*CurFv[-(Np-1):,]
         tq2_old = np.atleast_2d(tq2_old).T
         # state vector of the smaminex system : [ q1^+, tq2^c, p^c, q2^+]
-        qqpq_old = np.zeros((Nv + 2*(Np - 1), 1))
-        qqpq_old[:Nv - (Np - 1), ] = q1_old
-        qqpq_old[Nv - (Np - 1):Nv, ] = tq2_old
-        qqpq_old[Nv:Nv + Np - 1, ] = PFac*vp_old[Nv:, ]
-        qqpq_old[Nv + Np - 1:, ] = q2_old
+        qqpq_old = np.zeros((Nv + 2*Npc, 1))
+        qqpq_old[:Nv - Npc, ] = q1_old
+        qqpq_old[Nv - Npc:Nv, ] = tq2_old
+        qqpq_old[Nv:Nv + Npc, ] = PFac*vp_old[Nv:, ]
+        qqpq_old[Nv + Npc:, ] = q2_old
     else:
         qqpq_old = qqpq_init
 
@@ -180,7 +172,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
             ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
 
-            gdot = np.zeros((Np - 1, 1))  # TODO: implement \dot g
+            gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
 
             Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
                                           WCD*B1Sme*q1_old]) +\
@@ -192,6 +184,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 q1_tq2_p_q2_new = IterAfac(Iterrhs.flatten())
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                 TolCor = 0
+                print np.linalg.norm(qqpq_old)
             else:
                 if inikryupd:
                     print '\n1st step with direct solve to initialize krylov\n'
@@ -247,7 +240,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
                     savemat(dname, {'qqpq_old': qqpq_old})
 
-            q1_old = qqpq_old[:Nv - (Np - 1), ]
+            q1_old = qqpq_old[:Nv - Npc, ]
             q2_old = qqpq_old[-Npc:, ]
 
             # Extract the 'actual' velocity and pressure
@@ -256,21 +249,21 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             vc[B2BoolInv, ] = q2_old
             # print np.linalg.norm(vc)
 
-            pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
+            pc = PFacI*qqpq_old[Nv:Nv + Npc, ]
 
-            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=Pdof)
+            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=PrP.Pdof)
 
             tcur += dt
 
             # the errors and residuals
-            vCur, pCur = PrP.v, PrP.p
-            vCur.t = tcur
-            pCur.t = tcur - dt
+            # vCur, pCur = PrP.v, PrP.p
+            # vCur.t = tcur
+            # pCur.t = tcur - dt
 
-            ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
-            VelEr.append(errornorm(vCur, v))
-            PEr.append(errornorm(pCur, p))
-            TolCorL.append(TolCor)
+            # ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+            # VelEr.append(errornorm(vCur, v))
+            # PEr.append(errornorm(pCur, p))
+            # TolCorL.append(TolCor)
 
             if i + etap == 1 and TsP.SaveIniVal:
                 from scipy.io import savemat
@@ -312,6 +305,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     CFac = 1  # /dt
     # PFac = -1  # -1 for symmetry (if CFac==1)
     PFacI = -1./dt
+
+    print 'Norm of A: ', np.linalg.norm(Ac.todense())
 
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
