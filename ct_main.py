@@ -147,6 +147,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                 cricell = 1498
             elif N == 2:
                 cricell = 2386
+            elif N == 3:
+                cricell = 4843
             else:
                 raise NotImplementedError()
             # TODO: this is hard coded...
@@ -292,34 +294,23 @@ class UpFiles(object):
 
 
 if __name__ == '__main__':
-    scheme = 'CR'
-    N = 2
-    Re = 50
-    prob = 'cyl'
-    Ntslist = [256, 512, 1024, 2048]
     import dolfin_navier_scipy.data_output_utils as dou
     dou.logtofile(logstr='logfile3')
-    # solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=2**(-12),
-    #                     MaxIter=100,
-    #                     N=N, NtsList=[512], scheme=scheme, prob=prob)
-    solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=0,  # 2**(-12),
+
+    scheme = 'CR'
+    N = 3
+    Re = 80
+    prob = 'cyl'
+    Ntslist = [512, 1024, 2048]
+
+    solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=0,  # 2**(-12),
                         MaxIter=100,
                         N=N, NtsList=[4096], scheme=scheme, prob=prob)
 
-    solve_euler_timedep(method=1, tE=1., Re=Re, LinaTol=2**(-12),
+    solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=0,  # 2**(-14),
                         MaxIter=100,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
-    solve_euler_timedep(method=2, tE=1., Re=Re, LinaTol=2**(-12),
+    solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=0,  # 2**(-14),
                         MaxIter=100,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
-
-    # method = 2
-    # nu = 1e-2
-    # scheme = 'TH'
-    # N = 40
-    # solve_euler_timedep(method=method, N=N, nu=nu,
-    #                     LinaTol=2**(-10),
-    #                     # LinaTol=0,
-    #                     MaxIter=225, NtsList=[128, 256],
-    #                     scheme=scheme, inikryupd=True)

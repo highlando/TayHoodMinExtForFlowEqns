@@ -139,7 +139,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     if TsP.svdatatdsc:
         dtstrdct = dict(prefix=TsP.svdatapath, method=1, N=PrP.N,
-                        nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol)
+                        nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
         cdatstr = get_dtstr(t=0, **dtstrdct)
         try:
             np.load(cdatstr + '.npy')
@@ -579,6 +579,6 @@ def pinthep(B, BT, M, fp, vp_init, pdof):
 
 
 def get_dtstr(t=None, prefix='', method=None, N=None,
-              nu=None, Nts=None, tol=None, **kwargs):
-    return prefix + '_m{0}_N{1}_nu{2}_Nts{3}_tol_{4}_t{5}'.\
-        format(method, N, nu, Nts, tol, t)
+              nu=None, Nts=None, tol=None, te=None, **kwargs):
+    return prefix + '_m{0}_N{1}_nu{2}_Nts{3}_tol_{4}_te{6}_t{5}'.\
+        format(method, N, nu, Nts, tol, t, te)
