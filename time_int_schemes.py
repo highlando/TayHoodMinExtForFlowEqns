@@ -323,6 +323,19 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     # PFac = -1  # -1 for symmetry (if CFac==1)
     PFacI = -1./dt
 
+    if TsP.svdatatdsc:
+        dtstrdct = dict(prefix=TsP.svdatapath, method=2, N=PrP.N,
+                        nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
+        cdatstr = get_dtstr(t=0, **dtstrdct)
+        try:
+            np.load(cdatstr + '.npy')
+        except IOError:
+            np.save(cdatstr, vp_init)
+            print 'saving to ', cdatstr, ' ...'
+        else:
+            print '\n yayayayy looks like we already went through \n', cdatstr
+            return
+
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
@@ -441,6 +454,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
 
             tcur += dt
+
+            if TsP.svdatatdsc:
+                cdatstr = get_dtstr(t=tcur, **dtstrdct)
+                np.save(cdatstr, vp_old)
 
             # the errors
             vCur, pCur = PrP.v, PrP.p

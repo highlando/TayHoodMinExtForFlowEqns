@@ -299,17 +299,17 @@ if __name__ == '__main__':
 
     scheme = 'CR'
     N = 3
-    Re = 80
+    Re = 75
     prob = 'cyl'
     Ntslist = [512, 1024, 2048]
 
-    solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=0,  # 2**(-12),
+    solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=0,  # 2**(-12),
                         MaxIter=100,
-                        N=N, NtsList=[4096], scheme=scheme, prob=prob)
+                        N=N, NtsList=[2*4096], scheme=scheme, prob=prob)
 
-    solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=0,  # 2**(-14),
-                        MaxIter=100,
-                        N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+    # solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=0,  # 2**(-14),
+    #                     MaxIter=100,
+    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=0,  # 2**(-14),
                         MaxIter=100,

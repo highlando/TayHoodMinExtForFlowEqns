@@ -6,9 +6,11 @@ from prob_defs import FempToProbParams
 
 dolfin.set_log_level(60)
 
-N, Re, scheme, tE = 3, 80, 'CR', 2.
-Ntslist = [512, 1024]  # , 2048]
-Ntsref = 4096
+samplerate = 20
+
+N, Re, scheme, tE = 3, 75, 'CR', 2.
+Ntslist = [512, 1024, 2048]
+Ntsref = 2*4096
 tol = 0  # 2**(-12)
 
 svdatapath = 'data/'
@@ -17,11 +19,12 @@ femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
-method = 2
 
 PrP = FempToProbParams(N, femp=femp, pdof=None)
-dtstrdctref = dict(prefix=svdatapath, method=method, N=PrP.N,
+dtstrdctref = dict(prefix=svdatapath, method=2, N=PrP.N,
                    nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
+
+method = 2
 
 errvl = []
 errpl = []
@@ -45,15 +48,17 @@ for Nts in Ntslist:
         elp.append(dolfin.errornorm(p, pref))
 
     trange = np.linspace(0, tE, Nts+1)
+    samplvec = np.arange(1, len(trange), samplerate)
 
     app_pverr(0)
 
-    for t in trange[1:]:
+    for t in trange[samplvec]:
         app_pverr(t)
 
     ev = np.array(elv)
     ep = np.array(elp)
 
+    trange = np.r_[trange[0], trange[samplerate]]
     dtvec = trange[1:] - trange[:-1]
 
     trapv = 0.5*(ev[:-1] + ev[1:])
