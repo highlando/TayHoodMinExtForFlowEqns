@@ -329,12 +329,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         cdatstr = get_dtstr(t=0, **dtstrdct)
         try:
             np.load(cdatstr + '.npy')
+            print 'loaded data from ', cdatstr, ' ...'
         except IOError:
             np.save(cdatstr, vp_init)
             print 'saving to ', cdatstr, ' ...'
-        else:
-            print '\n yayayayy looks like we already went through \n', cdatstr
-            return
 
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
@@ -392,61 +390,73 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
+            if TsP.svdatatdsc:
+                cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            try:
+                vp_next = np.load(cdatstr + '.npy')
+                print 'loaded data from ', cdatstr, ' ...'
+                vp_oldold = vp_old
+                vp_old = vp_next
+            except IOError:
+                print 'computing data for ', cdatstr, ' ...'
+                ConV = dtn.get_convvec(v, PrP.V)
+                CurFv = dtn.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
 
-            ConV = dtn.get_convvec(v, PrP.V)
-            CurFv = dtn.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
+                Iterrhs = np.vstack([MFac*1.0/dt*Mc*vp_old[:Nv, ],
+                                     np.zeros((Npc, 1))]) +\
+                    np.vstack([MFac*(fvbc + CurFv - ConV[PrP.invinds, ]),
+                               CFac*fpbcc])
 
-            Iterrhs = np.vstack([MFac*1.0/dt*Mc*vp_old[:Nv, ],
-                                 np.zeros((Npc, 1))]) +\
-                np.vstack([MFac*(fvbc + CurFv - ConV[PrP.invinds, ]),
-                           CFac*fpbcc])
-
-            if TsP.linatol == 0:
-                # ,vp_old,tol=TsP.linatol)
-                vp_new = IterAfac(Iterrhs.flatten())
-                # vp_new = spsla.spsolve(IterA, Iterrhs)
-                vp_old = np.atleast_2d(vp_new).T
-                TolCor = 0
-
-            else:
-                if inikryupd:
-                    print '\n1st step with direct solve to initialize krylov\n'
-                    vp_new = spsla.spsolve(IterA, Iterrhs)
+                if TsP.linatol == 0:
+                    # ,vp_old,tol=TsP.linatol)
+                    vp_new = IterAfac(Iterrhs.flatten())
+                    # vp_new = spsla.spsolve(IterA, Iterrhs)
                     vp_old = np.atleast_2d(vp_new).T
                     TolCor = 0
-                    inikryupd = False  # only once !!
+
                 else:
-                    if TsP.TolCorB:
-                        NormRhsInd2 = np.sqrt(ind2_ip(Iterrhs, Iterrhs))[0][0]
-                        TolCor = 1.0 / np.max([NormRhsInd2, 1])
+                    if inikryupd and tcur == t0:
+                        print '\n1st step direct solve to initialize krylov\n'
+                        vp_new = spsla.spsolve(IterA, Iterrhs)
+                        vp_old = np.atleast_2d(vp_new).T
+                        TolCor = 0
+                        inikryupd = False  # only once !!
                     else:
-                        TolCor = 1.0
+                        if TsP.TolCorB:
+                            NormRhsInd2 = \
+                                np.sqrt(ind2_ip(Iterrhs, Iterrhs))[0][0]
+                            TolCor = 1.0 / np.max([NormRhsInd2, 1])
+                        else:
+                            TolCor = 1.0
 
-                    curls = krypy.linsys.LinearSystem(IterA, Iterrhs,
-                                                      M=MInv)
+                        curls = krypy.linsys.LinearSystem(IterA, Iterrhs,
+                                                          M=MInv)
 
-                    tstart = time.time()
+                        tstart = time.time()
 
-                    # extrapolating the initial value
-                    upv = (vp_old - vp_oldold)
+                        # extrapolating the initial value
+                        upv = (vp_old - vp_oldold)
 
-                    # ret = krypy.linsys.RestartedGmres(curls,
-                    #                                   maxiter=TsP.MaxIter,
-                    #                                   x0=vp_old + upv,
-                    #                                   tol=TolCor*TsP.linatol,
-                    #                                   max_restarts=100)
-                    ret = krypy.linsys.Minres(curls, maxiter=20*TsP.MaxIter,
-                                              x0=vp_old + upv,
-                                              tol=TolCor*TsP.linatol)
-                    tend = time.time()
-                    vp_oldold = vp_old
-                    vp_old = ret.xk
+                        ret = krypy.linsys.\
+                            RestartedGmres(curls, maxiter=TsP.MaxIter,
+                                           x0=vp_old + upv,
+                                           tol=TolCor*TsP.linatol,
+                                           max_restarts=100)
+                        # ret = krypy.linsys.\
+                        #     Minres(curls, maxiter=20*TsP.MaxIter,
+                        #            x0=vp_old + upv, tol=TolCor*TsP.linatol)
+                        tend = time.time()
+                        vp_oldold = vp_old
+                        vp_old = ret.xk
 
-                    print ('Needed {0} of max {1} iterations: ' +
-                           'final relres = {2}\n TolCor was {3}').\
-                        format(len(ret.resnorms), TsP.MaxIter,
-                               ret.resnorms[-1], TolCor)
-                    print 'Elapsed time {0}'.format(tend - tstart)
+                        print ('Needed {0} of max {1} iterations: ' +
+                               'final relres = {2}\n TolCor was {3}').\
+                            format(len(ret.resnorms), TsP.MaxIter,
+                                   ret.resnorms[-1], TolCor)
+                        print 'Elapsed time {0}'.format(tend - tstart)
+
+                if TsP.svdatatdsc:
+                    np.save(cdatstr, vp_old)
 
             vc = vp_old[:Nv, ]
             pc = PFacI*vp_old[Nv:, ]
@@ -454,10 +464,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
 
             tcur += dt
-
-            if TsP.svdatatdsc:
-                cdatstr = get_dtstr(t=tcur, **dtstrdct)
-                np.save(cdatstr, vp_old)
 
             # the errors
             vCur, pCur = PrP.v, PrP.p
