@@ -4,8 +4,8 @@ import numpy.linalg as npla
 import scipy.sparse as sps
 
 
-def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
-                             scheme='TH', fullB=None):
+def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
+                             scheme='TH', fullB=None, crinicell=None):
     from smamin_utils import col_columns_atend
     from scipy.io import loadmat, savemat
     """ rearrange `B` and `M` for smart minimal extension
@@ -20,6 +20,10 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
          * 'TH' : Taylor-Hood
          * 'CR' : Crouzeix-Raviart
 
+    crinicell : int, optional
+        the starting cell for the 'CR' scheme, defaults to `0`
+    addnedge : int, optional
+        whether to add a Neumann edge in the CR scheme, defaults to `None`
 
     Returns
     -------
@@ -39,25 +43,37 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
 
     if scheme == 'TH':
         print 'solving index 1 -- with TH scheme'
-        dname = 'SmeMcBc_N{0}_TH'.format(N)
+        dname = 'SmeMcBc_N{0}nu{1]_TH'.format(N, PrP.nu)
         get_b2inds_rtn = get_B2_bubbleinds
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
     elif scheme == 'CR':
         print 'solving index 1 -- with CR scheme'
-        dname = 'SmeMcBc_N{0}_CR'.format(N)
+        dname = 'SmeMcBc_N{0}nu{1}_CR'.format(N, PrP.nu)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
-        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q,
+        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q, inicell=crinicell,
                     B_matrix=B, invinds=PrP.invinds)
 
     try:
         SmDic = loadmat(dname)
-        pdoflist = loadmat(dname+'pdoflist')
+        pdoflist = loadmat(dname+'pdoflist')  # TODO enable saving again
 
     except IOError:
         print 'Computing the B2 indices...'
         # get the indices of the B2-part
         B2Inds, pdoflist = get_b2inds_rtn(**args)
+        if addnedgeat is not None:
+            # TODO: hard coded filtering of the needed V bas func
+            # list of columns that have a nnz at cell #addnedge
+            potcols = fullB[addnedgeat, :].indices
+            for col in potcols:
+                # TODO here we need B
+                if fullB[:, col].nnz == 1:
+                    coltoadd = col
+                    break
+            B2Inds = np.r_[coltoadd, B2Inds]
+            # end TODO
+
         # the B2 inds wrt to inner nodes
         # this gives a masked array of boolean type
         B2BoolInv = np.in1d(np.arange(PrP.V.dim())[PrP.invinds], B2Inds)
@@ -102,17 +118,27 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None,
         pdoflist = None
     only_check_cond = False
     if only_check_cond:
-        B2 = BSme[1:, :][:, -B2Inds.size:]
-        print 'condition number is ', npla.cond(B2.todense())
+        if PrP.Pdof is None:
+            B2 = BSme[:, :][:, -B2Inds.size:]
+            B2res = fullB[pdoflist.flatten(), :][:, B2Inds.flatten()]
+            # B2res = BSme[pdoflist.flatten(), :][:, -B2Inds.size:]
+        elif PrP.Pdof == 0:
+            B2 = BSme[1:, :][:, -B2Inds.size:]
+        else:
+            raise NotImplementedError()
+        print 'condition number is ', npla.cond(B2res.todense())
         print 'N is ', N
+        print 'B2 shape is ', B2.shape
         import matplotlib.pylab as pl
         pl.figure(1)
         pl.spy(B2)
+        pl.figure(2)
+        pl.spy(B2res)  # [:100, :][:, :100])
         pl.show(block=False)
         import sys
         sys.exit('done')
 
-    if fullB is not None:
+    if fullB is not None and only_check_cond:
         fbsme = col_columns_atend(fullB, B2Inds.flatten())
         import matplotlib.pylab as pl
         pl.figure(2)
@@ -411,17 +437,22 @@ def commonEdgeInd(cell1_ind, cell2_ind, mesh):
 # returns the edges corresponding to V_{2,h} as in the Preprint
 #  performs Algorithm 1
 #  define mapping iota: cells -> interior edges
-def computeSmartMinExtMapping(V, mesh, B=None):
+def computeSmartMinExtMapping(V, mesh, B=None, Tzero=None):
     nr_cells = mesh.num_cells()
-    # T_0 = triangle with sell-index 0
+    # T_0 = starting triangle with given cell-index
+    # list of already visited triangles and selected edges
+    if Tzero is None:
+        Tzero = 0
+    T_minus_R = [Tzero]
     # list of remaining triangles
     R = np.arange(nr_cells)
-    R = R[1:mesh.num_cells()]
-    # list of already visited triangles and selected edges
-    T_minus_R = [0]
+    if Tzero == 0:
+        R = R[1:mesh.num_cells()]
+    else:
+        R = R[R != Tzero]  # TODO: do this efficiently since R is sortd
     E = []
-    # indox of 'last' triangle
-    last_T = 0
+    # index of 'last' triangle
+    last_T = Tzero
 
     # loop until to triangles are left
     print 'Enter while loop'
@@ -431,11 +462,11 @@ def computeSmartMinExtMapping(V, mesh, B=None):
         # only adjacent cells which are also in R
         adm_adj_cells = np.intersect1d(adj_cells_last_T, R)
 
-        # it can happen that there is no neoghboring triangle in R
+        # it can happen that there is no neighboring triangle in R
         # then we have to reset last_T
         if len(adm_adj_cells) < 1:
             print ' - Couldnt find adjacent triangles. Have to reset last_T.'
-            found_new_triangle = 0
+            found_new_triangle = False
             counter = 0
             while not found_new_triangle:
                 test_T = T_minus_R[counter]
@@ -444,7 +475,7 @@ def computeSmartMinExtMapping(V, mesh, B=None):
                 # print np.intersect1d(adj_cells_test_T, R)
                 if len(np.intersect1d(adj_cells_test_T, R)) > 0:
                     print ' - - YES! I found a new triangle.'
-                    found_new_triangle = 1
+                    found_new_triangle = True
                     last_T = test_T
                     adm_adj_cells = np.intersect1d(adj_cells_test_T, R)
                 counter = counter + 1
@@ -452,7 +483,7 @@ def computeSmartMinExtMapping(V, mesh, B=None):
         # if there exists at least one admissible neighbor: get common edge
         new_T = int(adm_adj_cells[0])
         print 'old Tri %3g and new found Tri %3g' % (last_T, new_T)
-        R = R[R != new_T]
+        R = R[R != new_T]  # TODO: this can be done more efficient R is sorted
         T_minus_R = np.append(T_minus_R, new_T)
         comm_edge = commonEdgeInd(last_T, new_T, mesh)
         # update range(iota), i.e., list of edges
@@ -464,7 +495,7 @@ def computeSmartMinExtMapping(V, mesh, B=None):
 
 
 def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
-                  Q=None):
+                  Q=None, inicell=0):
     """compute the indices of dofs that set up
     the invertible B2. This function is specific for CR elements."""
 
@@ -473,7 +504,8 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
     # koennte man vermutlich auch eleganter ohne die B Matrix machen
 
     # apply algorithm from Preprint
-    edges_V2, pdoflist = computeSmartMinExtMapping(V, mesh, B=B_matrix)
+    edges_V2, pdoflist = computeSmartMinExtMapping(V, mesh, B=B_matrix,
+                                                   Tzero=inicell)
     # get corresponding degrees of freedom of the CR-scheme
     print 'corresponding DoF for CR'
     edgeCRDofArray = computeEdgeCRDofArray(V, mesh, B=B_matrix)
@@ -501,3 +533,7 @@ def get_B2_CRinds(N=None, V=None, mesh=None, B_matrix=None, invinds=None,
             dof_for_regular_B2[i] = DoF_for_V2_y[i]
 
     return dof_for_regular_B2, pdoflist
+
+
+def get_cellid_nexttopoint(mesh, point):
+    return mesh.bounding_box_tree().compute_first_entity_collision(point)
