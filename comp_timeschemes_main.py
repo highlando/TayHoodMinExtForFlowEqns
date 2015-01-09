@@ -266,7 +266,7 @@ if __name__ == '__main__':
     solve_euler_timedep(method=method, N=N, nu=nu,
                         LinaTol=2**(-10), 
                         # LinaTol=0, 
-                        MaxIter=400, NtsList=[64],  # , 128],  # , 64],
+                        MaxIter=400, NtsList=[128],  # , 64],
                         scheme=scheme, inikryupd=True)
     # scheme = 'TH'
     # N = 40
