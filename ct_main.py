@@ -301,7 +301,7 @@ if __name__ == '__main__':
     N = 3
     Re = 75
     prob = 'cyl'
-    Ntslist = [512, 1024, 2048]
+    Ntslist = [1024, 2048]
 
     # solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=0,  # 2**(-12),
     #                     MaxIter=100,
@@ -312,5 +312,5 @@ if __name__ == '__main__':
     #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-12),
-                        MaxIter=300,
+                        MaxIter=2000,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
