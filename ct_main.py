@@ -312,5 +312,5 @@ if __name__ == '__main__':
     #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-12),
-                        MaxIter=300,
+                        MaxIter=600,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)

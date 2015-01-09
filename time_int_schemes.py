@@ -459,6 +459,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                     np.save(cdatstr, vp_old)
 
             vc = vp_old[:Nv, ]
+            print 'Norm of current v: ', np.linalg.norm(vc)
             pc = PFacI*vp_old[Nv:, ]
 
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
