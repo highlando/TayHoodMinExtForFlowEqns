@@ -415,6 +415,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                     TolCor = 0
 
                 else:
+                    iniiterfac = TsP.iniiterfac
                     if inikryupd and tcur == t0:
                         print '\n1st step direct solve to initialize krylov\n'
                         vp_new = spsla.spsolve(IterA, Iterrhs)
@@ -438,10 +439,12 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                         upv = (vp_old - vp_oldold)
 
                         ret = krypy.linsys.\
-                            RestartedGmres(curls, maxiter=TsP.MaxIter,
-                                           x0=vp_old + upv,
+                            RestartedGmres(curls, x0=vp_old + upv,
                                            tol=TolCor*TsP.linatol,
+                                           maxiter=iniiterfac*TsP.MaxIter,
                                            max_restarts=100)
+                        iniiterfac = 1  # fac only in the first Krylov Call
+
                         # ret = krypy.linsys.\
                         #     Minres(curls, maxiter=20*TsP.MaxIter,
                         #            x0=vp_old + upv, tol=TolCor*TsP.linatol)
