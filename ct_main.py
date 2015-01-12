@@ -31,6 +31,7 @@ class TimestepParams(object):
         self.Residuals = NseResiduals()
         self.linatol = 0  # 1e-4  # 0 for direct sparse solver
         self.inikryupd = True  # initialization of krylov upd scheme
+        self.iniiterfac = 4  # often the first iteration needs more maxiters
         self.TolCor = []
         self.MaxIter = 85
         self.Ml = None  # preconditioners
@@ -299,7 +300,7 @@ if __name__ == '__main__':
 
     scheme = 'CR'
     N = 3
-    Re = 75
+    Re = 60
     prob = 'cyl'
     Ntslist = [512]
 
@@ -307,10 +308,10 @@ if __name__ == '__main__':
     #                     MaxIter=100,
     #                     N=N, NtsList=[2*4096], scheme=scheme, prob=prob)
 
-    # solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=0,  # 2**(-14),
-    #                     MaxIter=100,
-    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
-
-    solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-12),
-                        MaxIter=600,
+    solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-14),
+                        MaxIter=200,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+
+    # solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-12),
+    #                     MaxIter=600,
+    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)

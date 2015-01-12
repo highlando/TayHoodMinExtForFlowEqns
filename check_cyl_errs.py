@@ -6,9 +6,9 @@ from prob_defs import FempToProbParams
 
 dolfin.set_log_level(60)
 
-samplerate = 20
+samplerate = 10
 
-N, Re, scheme, tE = 3, 75, 'CR', 2.
+N, Re, scheme, tE = 3, 60, 'CR', 2.
 Ntslist = [512, 1024, 2048]
 Ntsref = 2*4096
 tol = 0  # 2**(-12)
@@ -47,7 +47,7 @@ for Nts in Ntslist:
         elv.append(dolfin.errornorm(v, vref))
         elp.append(dolfin.errornorm(p, pref))
 
-    trange = np.linspace(0, tE, Nts+1)
+    trange = np.linspace(0, tE/4, Nts/4+1)
     samplvec = np.arange(1, len(trange), samplerate)
 
     app_pverr(0)
