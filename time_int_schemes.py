@@ -143,12 +143,10 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
         cdatstr = get_dtstr(t=0, **dtstrdct)
         try:
             np.load(cdatstr + '.npy')
+            print 'loaded data from ', cdatstr, ' ...'
         except IOError:
             np.save(cdatstr, vp_init)
             print 'saving to ', cdatstr, ' ...'
-        else:
-            print '\n yayayayy looks like we already went through \n', cdatstr
-            return
 
     vp_old = np.copy(vp_init)
     q1_old = vp_init[~B2BoolInv, ]
@@ -175,97 +173,113 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     # compute 1st time step by direct solve to initialize the krylov upd scheme
     inikryupd = TsP.inikryupd
+    iniiterfac = TsP.iniiterfac  # the first krylov step needs more maxiter
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
+            if TsP.svdatatdsc:
+                cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            try:
+                qqpq_next = np.load(cdatstr + '_qqpq' + '.npy')
+                print 'loaded data from ', cdatstr, ' ...'
+                qqpq_oldold = qqpq_old
+                qqpq_old = qqpq_next
+                print 'i=', i
+                if i == 2:
+                    iniiterfac = 1  # fac only in the first Krylov Call
+            except IOError:
+                print 'computing data for ', cdatstr, ' ...'
 
-            ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
+                ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
 
-            gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
+                gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
 
-            Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
-                                          WCD*B1Sme*q1_old]) +\
-                np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
-            Iterrhs = np.vstack([Iterrhs, WC*FpbcSmeC])
+                Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
+                                              WCD*B1Sme*q1_old]) +\
+                    np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
+                Iterrhs = np.vstack([Iterrhs, WC*FpbcSmeC])
 
-            if TsP.linatol == 0:
-                # q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
-                q1_tq2_p_q2_new = IterAfac(Iterrhs.flatten())
-                qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
-                TolCor = 0
-            else:
-                if inikryupd:
-                    print '\n1st step with direct solve to initialize krylov\n'
-                    q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                if TsP.linatol == 0:
+                    # q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                    q1_tq2_p_q2_new = IterAfac(Iterrhs.flatten())
                     qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                     TolCor = 0
-                    inikryupd = False  # only once !!
                 else:
-                    # Norm of rhs of index-1 formulation
-                    if TsP.TolCorB:
-                        NormRhsInd1 = np.sqrt(
-                            smamin_fem_ip(Iterrhs, Iterrhs,
-                                          MSme, MPc, Nv, Npc))[0][0]
-                        TolCor = 1.0 / np.max([NormRhsInd1, 1])
-
+                    if inikryupd:
+                        print '\n1st step direct solve to initialize krylov\n'
+                        q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                        qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
+                        TolCor = 0
+                        inikryupd = False  # only once !!
                     else:
-                        TolCor = 1.0
-                        # Values from previous calculations to initialize gmres
-                    if TsP.UsePreTStps:
+                        # Norm of rhs of index-1 formulation
+                        if TsP.TolCorB:
+                            NormRhsInd1 = np.sqrt(
+                                smamin_fem_ip(Iterrhs, Iterrhs,
+                                              MSme, MPc, Nv, Npc))[0][0]
+                            TolCor = 1.0 / np.max([NormRhsInd1, 1])
+
+                        else:
+                            TolCor = 1.0
+                            # Values previous calculations to initialize gmres
+                        if TsP.UsePreTStps:
+                            dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
+                            try:
+                                IniV = loadmat(dname)
+                                qqpq_old = IniV['qqpq_old']
+                            except IOError:
+                                pass
+
+                        cls = krypy.linsys.\
+                            LinearSystem(IterA, Iterrhs, Ml=TsP.Ml, Mr=TsP.Mr,
+                                         ip_B=smamin_prec_fem_ip)
+
+                        tstart = time.time()
+                        # extrapolating the initial value
+                        qqqp_pv = (qqpq_old - qqpq_oldold)
+
+                        q1_tq2_p_q2_new = krypy.linsys.\
+                            RestartedGmres(cls, x0=qqpq_old+qqqp_pv,
+                                           tol=TolCor*TsP.linatol,
+                                           maxiter=iniiterfac*TsP.MaxIter,
+                                           max_restarts=100)
+
+                        qqpq_oldold = qqpq_old
+                        qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
+                        tend = time.time()
+                        print ('Needed {0} of max {4}*{1} iterations: ' +
+                               'final relres = {2}\n TolCor was {3}').\
+                            format(len(q1_tq2_p_q2_new.resnorms), TsP.MaxIter,
+                                   q1_tq2_p_q2_new.resnorms[-1], TolCor,
+                                   iniiterfac)
+                        print 'Elapsed time {0}'.format(tend - tstart)
+                        iniiterfac = 1  # fac only in the first Krylov Call
+
+                    if TsP.SaveTStps:
+                        from scipy.io import savemat
                         dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
-                        try:
-                            IniV = loadmat(dname)
-                            qqpq_old = IniV['qqpq_old']
-                        except IOError:
-                            pass
+                        savemat(dname, {'qqpq_old': qqpq_old})
 
-                    cls = krypy.linsys.\
-                        LinearSystem(IterA, Iterrhs, Ml=TsP.Ml, Mr=TsP.Mr,
-                                     ip_B=smamin_prec_fem_ip)
+                q1_old = qqpq_old[:Nv - Npc, ]
+                q2_old = qqpq_old[-Npc:, ]
 
-                    tstart = time.time()
-                    # extrapolating the initial value
-                    qqqp_pv = (qqpq_old - qqpq_oldold)
+                # Extract the 'actual' velocity and pressure
+                vc = np.zeros((Nv, 1))
+                vc[~B2BoolInv, ] = q1_old
+                vc[B2BoolInv, ] = q2_old
+                # print np.linalg.norm(vc)
 
-                    q1_tq2_p_q2_new = \
-                        krypy.linsys.RestartedGmres(cls,
-                                                    x0=qqpq_old+qqqp_pv,
-                                                    tol=TolCor*TsP.linatol,
-                                                    maxiter=TsP.MaxIter,
-                                                    max_restarts=100)
+                pc = PFacI*qqpq_old[Nv:Nv + Npc, ]
 
-                    qqpq_oldold = qqpq_old
-                    qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
-                    tend = time.time()
-                    print ('Needed {0} of max {1} iterations: ' +
-                           'final relres = {2}\n TolCor was {3}').\
-                        format(len(q1_tq2_p_q2_new.resnorms), TsP.MaxIter,
-                               q1_tq2_p_q2_new.resnorms[-1], TolCor)
-                    print 'Elapsed time {0}'.format(tend - tstart)
+                v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc,
+                                         pdof=PrP.Pdof)
 
-                if TsP.SaveTStps:
-                    from scipy.io import savemat
-                    dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
-                    savemat(dname, {'qqpq_old': qqpq_old})
-
-            q1_old = qqpq_old[:Nv - Npc, ]
-            q2_old = qqpq_old[-Npc:, ]
-
-            # Extract the 'actual' velocity and pressure
-            vc = np.zeros((Nv, 1))
-            vc[~B2BoolInv, ] = q1_old
-            vc[B2BoolInv, ] = q2_old
-            # print np.linalg.norm(vc)
-
-            pc = PFacI*qqpq_old[Nv:Nv + Npc, ]
-
-            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc, pdof=PrP.Pdof)
+                if TsP.svdatatdsc:
+                    cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+                    np.save(cdatstr, np.vstack([vc, pc]))
+                    np.save(cdatstr + '_qqpq', qqpq_old)
 
             tcur += dt
-            if TsP.svdatatdsc:
-                cdatstr = get_dtstr(t=tcur, **dtstrdct)
-                np.save(cdatstr, np.vstack([vc, pc]))
-
             # the errors and residuals
             try:
                 vCur, pCur = PrP.v, PrP.p
@@ -387,6 +401,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         return mass_fem_ip(v1, v2, Mc) + mass_fem_ip(p1, p2, MPc)
 
     inikryupd = TsP.inikryupd
+    iniiterfac = TsP.iniiterfac  # the first krylov step needs more maxiter
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
@@ -397,6 +412,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                 print 'loaded data from ', cdatstr, ' ...'
                 vp_oldold = vp_old
                 vp_old = vp_next
+                if tcur == dt+dt:
+                    iniiterfac = 1  # fac only in the first Krylov Call
             except IOError:
                 print 'computing data for ', cdatstr, ' ...'
                 ConV = dtn.get_convvec(v, PrP.V)
@@ -415,7 +432,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                     TolCor = 0
 
                 else:
-                    iniiterfac = TsP.iniiterfac
                     if inikryupd and tcur == t0:
                         print '\n1st step direct solve to initialize krylov\n'
                         vp_new = spsla.spsolve(IterA, Iterrhs)
@@ -443,7 +459,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                                            tol=TolCor*TsP.linatol,
                                            maxiter=iniiterfac*TsP.MaxIter,
                                            max_restarts=100)
-                        iniiterfac = 1  # fac only in the first Krylov Call
 
                         # ret = krypy.linsys.\
                         #     Minres(curls, maxiter=20*TsP.MaxIter,
@@ -452,11 +467,12 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                         vp_oldold = vp_old
                         vp_old = ret.xk
 
-                        print ('Needed {0} of max {1} iterations: ' +
+                        print ('Needed {0} of max {4}*{1} iterations: ' +
                                'final relres = {2}\n TolCor was {3}').\
                             format(len(ret.resnorms), TsP.MaxIter,
-                                   ret.resnorms[-1], TolCor)
+                                   ret.resnorms[-1], TolCor, iniiterfac)
                         print 'Elapsed time {0}'.format(tend - tstart)
+                        iniiterfac = 1  # fac only in the first Krylov Call
 
                 if TsP.svdatatdsc:
                     np.save(cdatstr, vp_old)
