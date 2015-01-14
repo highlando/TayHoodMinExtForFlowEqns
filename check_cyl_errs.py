@@ -11,9 +11,10 @@ samplerate = 10
 N, Re, scheme, tE = 3, 60, 'CR', .5
 Ntslist = [128, 256, 512, 1024]
 Ntsref = 4096
-tol = 0  # 2**(-12)
+tol = 2**(-12)
 
-svdatapath = 'data/'
+svdatapathref = 'data/'
+svdatapath = 'edithadata/'
 
 femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
@@ -21,10 +22,10 @@ femp, stokesmatsc, rhsd_vfrc, \
                         scheme=scheme)
 
 PrP = FempToProbParams(N, femp=femp, pdof=None)
-dtstrdctref = dict(prefix=svdatapath, method=2, N=PrP.N,
+dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
                    nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
 
-method = 1
+method = 2
 
 errvl = []
 errpl = []

@@ -304,13 +304,13 @@ if __name__ == '__main__':
     prob = 'cyl'
     Ntslist = [128, 256, 512, 1024]
 
-    # solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=0,  # 2**(-12),
-    #                     MaxIter=100,
-    #                     N=N, NtsList=[2*4096], scheme=scheme, prob=prob)
+    solve_euler_timedep(method=2, tE=.5, Re=Re, LinaTol=0,  # 2**(-12),
+                        MaxIter=100,
+                        N=N, NtsList=[4096], scheme=scheme, prob=prob)
 
-    solve_euler_timedep(method=1, tE=.5, Re=Re, LinaTol=2**(-12),
-                        MaxIter=300,
-                        N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+    # solve_euler_timedep(method=1, tE=.5, Re=Re, LinaTol=2**(-12),
+    #                     MaxIter=300,
+    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     # solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-12),
     #                     MaxIter=600,
