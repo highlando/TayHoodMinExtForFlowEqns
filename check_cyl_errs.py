@@ -8,9 +8,9 @@ dolfin.set_log_level(60)
 
 samplerate = 10
 
-N, Re, scheme, tE = 3, 60, 'CR', 2.
-Ntslist = [512, 1024, 2048]
-Ntsref = 2*4096
+N, Re, scheme, tE = 3, 60, 'CR', .5
+Ntslist = [128, 256, 512, 1024]
+Ntsref = 4096
 tol = 0  # 2**(-12)
 
 svdatapath = 'data/'
@@ -24,7 +24,7 @@ PrP = FempToProbParams(N, femp=femp, pdof=None)
 dtstrdctref = dict(prefix=svdatapath, method=2, N=PrP.N,
                    nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
 
-method = 2
+method = 1
 
 errvl = []
 errpl = []
@@ -47,7 +47,7 @@ for Nts in Ntslist:
         elv.append(dolfin.errornorm(v, vref))
         elp.append(dolfin.errornorm(p, pref))
 
-    trange = np.linspace(0, tE/4, Nts/4+1)
+    trange = np.linspace(0, tE, Nts+1)
     samplvec = np.arange(1, len(trange), samplerate)
 
     app_pverr(0)
