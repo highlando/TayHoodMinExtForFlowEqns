@@ -308,7 +308,7 @@ if __name__ == '__main__':
     #                     MaxIter=100,
     #                     N=N, NtsList=[2*4096], scheme=scheme, prob=prob)
 
-    solve_euler_timedep(method=1, tE=2., Re=Re, LinaTol=2**(-12),
+    solve_euler_timedep(method=1, tE=.5, Re=Re, LinaTol=2**(-12),
                         MaxIter=300,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
