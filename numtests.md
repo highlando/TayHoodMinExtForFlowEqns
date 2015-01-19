@@ -25,10 +25,18 @@ N=3, tE=.2, Re=60
 ---
  * good conv behavior for `[32, 64, 128, 256, 512]` vs  `4096`
 
-    * Nts = 32, v_error = 0.000463863930878, p_error = 0.000526335262441
-    * Nts = 64, v_error = 0.000208665203525, p_error = 0.000216946729061
-    * Nts = 128, v_error = 9.88858138638e-05, p_error = 9.59969369052e-05
-    * Nts = 256, v_error = 5.00126001464e-05, p_error = 4.53070079658e-05
+    * Nts = 32, verror = 0.000463863930878, perror = 0.000526335262441
+    * Nts = 64, verror = 0.000208665203525, perror = 0.000216946729061
+    * Nts = 128, verror = 9.88858138638e-05, perror = 9.59969369052e-05
+    * Nts = 256, verror = 5.00126001464e-05, perror = 4.53070079658e-05
+
+ * for index 1 
+
+    * Nts = 32, vrrror = 0.000519916629373, perror = 0.053042803582
+    * Nts = 64, vrrror = 0.000275647555997, perror = 0.0534501422269
+    * Nts = 128, verror = 0.000167640303474, perror = 0.0536561766832
+    * Nts = 256, verror = 0.000150202725962, perror = 0.0537398380109
+    * Nts = 512, verror = 0.00370312691911, perror = 0.0531355398759
 
  * but not so nice pics -- no vertices yet
 

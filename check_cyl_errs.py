@@ -6,15 +6,16 @@ from prob_defs import FempToProbParams
 
 dolfin.set_log_level(60)
 
-samplerate = 10
+samplerate = 1
 
-N, Re, scheme, tE = 3, 60, 'CR', .5
-Ntslist = [128, 256, 512, 1024]
+N, Re, scheme, tE = 3, 60, 'CR', .2
+Ntslist = [32, 64, 128, 256, 512]
 Ntsref = 4096
-tol = 2**(-12)
+tol = 2**(-18)
 
 svdatapathref = 'data/'
-svdatapath = 'edithadata/'
+svdatapath = 'data/'
+# svdatapath = 'edithadata/'
 
 femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
@@ -25,7 +26,7 @@ PrP = FempToProbParams(N, femp=femp, pdof=None)
 dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
                    nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
 
-method = 2
+method = 1
 
 errvl = []
 errpl = []
