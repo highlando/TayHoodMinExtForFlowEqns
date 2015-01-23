@@ -6,7 +6,7 @@ from prob_defs import FempToProbParams
 
 dolfin.set_log_level(60)
 
-samplerate = 1
+samplerate = 8
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
 Ntslist = [32, 64, 128, 256, 512]
@@ -21,21 +21,27 @@ femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
+fpbc = rhsd_stbc['fp']
 
 PrP = FempToProbParams(N, femp=femp, pdof=None)
 dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
                    nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
 
+J, MP = stokesmatsc['J'], stokesmatsc['MP']
+Nv = J.shape[1]
+
 method = 1
 
 errvl = []
 errpl = []
+rescl = []
 for Nts in Ntslist:
     dtstrdct = dict(prefix=svdatapath, method=method, N=PrP.N,
                     nu=PrP.nu, Nts=Nts, tol=tol, te=tE)
 
     elv = []
     elp = []
+    elc = []
 
     def app_pverr(tcur):
         cdatstr = get_dtstr(t=tcur, **dtstrdct)
@@ -48,6 +54,11 @@ for Nts in Ntslist:
 
         elv.append(dolfin.errornorm(v, vref))
         elp.append(dolfin.errornorm(p, pref))
+        cres = J*vp[:Nv]-fpbc
+        ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
+        # routine from time_int_schemes seems buggy for CR or 'g not 0'
+        # ncres = comp_cont_error(v, fpbc, PrP.Q)
+        elc.append(ncres)
 
     trange = np.linspace(0, tE, Nts+1)
     samplvec = np.arange(1, len(trange), samplerate)
@@ -59,6 +70,7 @@ for Nts in Ntslist:
 
     ev = np.array(elv)
     ep = np.array(elp)
+    ec = np.array(elc)
 
     trange = np.r_[trange[0], trange[samplerate]]
     dtvec = trange[1:] - trange[:-1]
@@ -69,10 +81,15 @@ for Nts in Ntslist:
     trapp = 0.5*(ep[:-1] + ep[1:])
     errp = (dtvec*trapp).sum()
 
-    print 'Nts = {0}, v_error = {1}, p_error = {2}'.format(Nts, errv, errp)
+    trapc = 0.5*(ec[:-1] + ec[1:])
+    resc = (dtvec*trapc).sum()
+
+    print 'Nts = {0}, v_error = {1}, p_error = {2}, contres={3}'.\
+        format(Nts, errv, errp, resc)
 
     errvl.append(errv)
     errpl.append(errp)
+    rescl.append(resc)
 
 print errvl
 print errpl
