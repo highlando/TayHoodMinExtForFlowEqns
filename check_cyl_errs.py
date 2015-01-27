@@ -96,6 +96,9 @@ for Nts in Ntslist:
 print errvl
 print errpl
 
-cpu.conv_plot(Ntslist, [errvl], markerl=['o'], fignum=1, leglist=['velerror'])
-cpu.conv_plot(Ntslist, [rescl], markerl=['o'], fignum=2, leglist=['cres'])
-cpu.conv_plot(Ntslist, [errpl], markerl=['o'], fignum=3, leglist=['perror'])
+cpu.conv_plot(Ntslist, [errvl], logscale=2,
+              markerl=['o'], fignum=1, leglist=['velerror'])
+cpu.conv_plot(Ntslist, [rescl], logscale=2,
+              markerl=['o'], fignum=2, leglist=['cres'])
+cpu.conv_plot(Ntslist, [errpl],logscale=2,
+              markerl=['o'], fignum=3, leglist=['perror'])
