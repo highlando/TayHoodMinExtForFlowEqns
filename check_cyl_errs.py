@@ -4,9 +4,11 @@ from time_int_schemes import expand_vp_dolfunc, get_dtstr
 import dolfin_navier_scipy.problem_setups as dnsps
 from prob_defs import FempToProbParams
 
+import matlibplots.conv_plot_utils as cpu
+
 dolfin.set_log_level(60)
 
-samplerate = 8
+samplerate = 2
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
 Ntslist = [32, 64, 128, 256, 512]
@@ -93,3 +95,7 @@ for Nts in Ntslist:
 
 print errvl
 print errpl
+
+cpu.conv_plot(Ntslist, [errvl], markerl=['o'], fignum=1, leglist=['velerror'])
+cpu.conv_plot(Ntslist, [rescl], markerl=['o'], fignum=2, leglist=['cres'])
+cpu.conv_plot(Ntslist, [errpl], markerl=['o'], fignum=3, leglist=['perror'])
