@@ -1,7 +1,11 @@
 import dolfin
 import numpy as np
 from time_int_schemes import expand_vp_dolfunc, get_dtstr
+
 import dolfin_navier_scipy.problem_setups as dnsps
+import dolfin_navier_scipy.data_output_utils as dou
+import dolfin_navier_scipy.stokes_navier_utils as snu
+
 from prob_defs import FempToProbParams
 
 import matlibplots.conv_plot_utils as cpu
@@ -12,8 +16,8 @@ samplerate = 2
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
 Ntslist = [32, 64, 128, 256, 512]
-Ntsref = 4096
-tol = 2**(-18)
+Ntsref = 2048
+tol = 0  # 2**(-18)
 
 svdatapathref = 'data/'
 svdatapath = 'data/'
@@ -33,6 +37,21 @@ J, MP = stokesmatsc['J'], stokesmatsc['MP']
 Nv = J.shape[1]
 
 method = 1
+
+# get the ref trajectories
+trange = np.linspace(0, tE, Ntsref+1)
+M, A = stokesmatsc['M'], stokesmatsc['A']
+JT, J = stokesmatsc['JT'], stokesmatsc['J']
+invinds = femp['invinds']
+fv, fp = rhsd_stbc['fv'], rhsd_stbc['fp']
+ppin = None
+
+snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp, V=femp['V'],
+                invinds=invinds, diribcs=femp['diribcs'],
+                start_ssstokes=True, trange=trange,
+                return_dictofpstrs=True, return_dictofvelstrs=True)
+
+vdref, pdref = snu.solve_nse(**snsedict)
 
 errvl = []
 errpl = []
