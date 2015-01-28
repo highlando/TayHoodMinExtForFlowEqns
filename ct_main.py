@@ -78,8 +78,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
         inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc, ppin=None,
-                        fv_stbc=fvbc, fp_stbc=fpbc, fvc=0*fvbc,
-                        fpr=0*fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
+                        fv=fvbc, fp=fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
                         return_vp=True)
         dimredsys = Bc.shape[1] + Bc.shape[0]
         vp_init = snu.solve_steadystate_nse(**inivdict)[0]
