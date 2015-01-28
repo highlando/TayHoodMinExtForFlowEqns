@@ -3,7 +3,6 @@ import numpy as np
 from time_int_schemes import expand_vp_dolfunc, get_dtstr
 
 import dolfin_navier_scipy.problem_setups as dnsps
-import dolfin_navier_scipy.data_output_utils as dou
 import dolfin_navier_scipy.stokes_navier_utils as snu
 
 from prob_defs import FempToProbParams
@@ -16,7 +15,7 @@ samplerate = 2
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
 Ntslist = [32, 64, 128, 256, 512]
-Ntsref = 2048
+Ntsref = 512
 tol = 0  # 2**(-18)
 
 svdatapathref = 'data/'
@@ -46,9 +45,13 @@ invinds = femp['invinds']
 fv, fp = rhsd_stbc['fv'], rhsd_stbc['fp']
 ppin = None
 
-snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp, V=femp['V'],
+snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp,
+                V=femp['V'], Q=femp['Q'],
                 invinds=invinds, diribcs=femp['diribcs'],
                 start_ssstokes=True, trange=trange,
+                clearprvdata=True, paraviewoutput=True,
+                data_prfx='refveldata/',
+                vfileprfx='refveldata/v', pfileprfx='refveldata/p',
                 return_dictofpstrs=True, return_dictofvelstrs=True)
 
 vdref, pdref = snu.solve_nse(**snsedict)
@@ -69,9 +72,12 @@ for Nts in Ntslist:
         vp = np.load(cdatstr + '.npy')
         v, p = expand_vp_dolfunc(PrP, vp=vp)
 
-        cdatstrref = get_dtstr(t=tcur, **dtstrdctref)
-        vpref = np.load(cdatstrref + '.npy')
-        vref, pref = expand_vp_dolfunc(PrP, vp=vpref)
+        # cdatstrref = get_dtstr(t=tcur, **dtstrdctref)
+        # vpref = np.load(cdatstrref + '.npy')
+        # vref, pref = expand_vp_dolfunc(PrP, vp=vpref)
+        vref = np.load(vdref[t])
+        pref = np.load(pdref[t])
+        vref, pref = expand_vp_dolfunc(PrP, vc=vref, pc=pref)
 
         elv.append(dolfin.errornorm(v, vref))
         elp.append(dolfin.errornorm(p, pref))
@@ -119,5 +125,5 @@ cpu.conv_plot(Ntslist, [errvl], logscale=2,
               markerl=['o'], fignum=1, leglist=['velerror'])
 cpu.conv_plot(Ntslist, [rescl], logscale=2,
               markerl=['o'], fignum=2, leglist=['cres'])
-cpu.conv_plot(Ntslist, [errpl],logscale=2,
+cpu.conv_plot(Ntslist, [errpl], logscale=2,
               markerl=['o'], fignum=3, leglist=['perror'])
