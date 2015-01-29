@@ -11,10 +11,10 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 4
+samplerate = 2
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64, 128, 256, 512]  # , 1024, 2048]
+Ntslist = [32, 64, 128, 256, 512]  # , 1024, 2048]
 Ntsref = 2048
 tol = 2**(-22)
 method = 1
