@@ -184,7 +184,6 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 print 'loaded data from ', cdatstr, ' ...'
                 qqpq_oldold = qqpq_old
                 qqpq_old = qqpq_next
-                print 'i=', i
                 if i == 2:
                     iniiterfac = 1  # fac only in the first Krylov Call
             except IOError:
@@ -205,7 +204,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                     TolCor = 0
                 else:
-                    if inikryupd:
+                    if inikryupd and tcur == t0:
                         print '\n1st step direct solve to initialize krylov\n'
                         q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
                         qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
@@ -332,7 +331,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     tcur = t0
 
-    MFac = dt  # /dt
+    MFac = dt
     CFac = 1  # /dt
     # PFac = -1  # -1 for symmetry (if CFac==1)
     PFacI = -1./dt

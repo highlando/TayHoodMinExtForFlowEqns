@@ -4,36 +4,46 @@ from time_int_schemes import expand_vp_dolfunc, get_dtstr
 import dolfin_navier_scipy.problem_setups as dnsps
 from prob_defs import FempToProbParams
 
+import matlibplots.conv_plot_utils as cpu
+
 dolfin.set_log_level(60)
 
-samplerate = 10
+samplerate = 2
 
-N, Re, scheme, tE = 3, 60, 'CR', 2.
-Ntslist = [512, 1024, 2048]
-Ntsref = 2*4096
-tol = 0  # 2**(-12)
+N, Re, scheme, tE = 3, 60, 'CR', .2
+Ntslist = [64, 128, 256]
+Ntsref = 4096
+tol = 2**(-22)
 
-svdatapath = 'data/'
+svdatapathref = 'data/'
+# svdatapath = 'data/'
+svdatapath = 'edithadata/'
 
 femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
+fpbc = rhsd_stbc['fp']
 
 PrP = FempToProbParams(N, femp=femp, pdof=None)
-dtstrdctref = dict(prefix=svdatapath, method=2, N=PrP.N,
+dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
                    nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
+
+J, MP = stokesmatsc['J'], stokesmatsc['MP']
+Nv = J.shape[1]
 
 method = 2
 
 errvl = []
 errpl = []
+rescl = []
 for Nts in Ntslist:
     dtstrdct = dict(prefix=svdatapath, method=method, N=PrP.N,
                     nu=PrP.nu, Nts=Nts, tol=tol, te=tE)
 
     elv = []
     elp = []
+    elc = []
 
     def app_pverr(tcur):
         cdatstr = get_dtstr(t=tcur, **dtstrdct)
@@ -46,8 +56,13 @@ for Nts in Ntslist:
 
         elv.append(dolfin.errornorm(v, vref))
         elp.append(dolfin.errornorm(p, pref))
+        cres = J*vp[:Nv]-fpbc
+        ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
+        # routine from time_int_schemes seems buggy for CR or 'g not 0'
+        # ncres = comp_cont_error(v, fpbc, PrP.Q)
+        elc.append(ncres)
 
-    trange = np.linspace(0, tE/4, Nts/4+1)
+    trange = np.linspace(0, tE, Nts+1)
     samplvec = np.arange(1, len(trange), samplerate)
 
     app_pverr(0)
@@ -57,6 +72,7 @@ for Nts in Ntslist:
 
     ev = np.array(elv)
     ep = np.array(elp)
+    ec = np.array(elc)
 
     trange = np.r_[trange[0], trange[samplerate]]
     dtvec = trange[1:] - trange[:-1]
@@ -67,10 +83,22 @@ for Nts in Ntslist:
     trapp = 0.5*(ep[:-1] + ep[1:])
     errp = (dtvec*trapp).sum()
 
-    print 'Nts = {0}, v_error = {1}, p_error = {2}'.format(Nts, errv, errp)
+    trapc = 0.5*(ec[:-1] + ec[1:])
+    resc = (dtvec*trapc).sum()
+
+    print 'Nts = {0}, v_error = {1}, p_error = {2}, contres={3}'.\
+        format(Nts, errv, errp, resc)
 
     errvl.append(errv)
     errpl.append(errp)
+    rescl.append(resc)
 
 print errvl
 print errpl
+
+cpu.conv_plot(Ntslist, [errvl], logscale=2,
+              markerl=['o'], fignum=1, leglist=['velerror'])
+cpu.conv_plot(Ntslist, [rescl], logscale=2,
+              markerl=['o'], fignum=2, leglist=['cres'])
+cpu.conv_plot(Ntslist, [errpl],logscale=2,
+              markerl=['o'], fignum=3, leglist=['perror'])
