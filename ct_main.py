@@ -77,9 +77,11 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
-        inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc, ppin=None,
+        inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc,
+                        ppin=None, V=femp['V'], Q=femp['Q'],
                         fv=fvbc, fp=fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
-                        return_vp=True)
+                        return_vp=True, diribcs=femp['diribcs'],
+                        invinds=femp['invinds'])
         dimredsys = Bc.shape[1] + Bc.shape[0]
         vp_init = snu.solve_steadystate_nse(**inivdict)[0]
 
@@ -294,20 +296,16 @@ class UpFiles(object):
 
 
 if __name__ == '__main__':
-    # import dolfin_navier_scipy.data_output_utils as dou
-    # dou.logtofile(logstr='logfile_m1')
+    import dolfin_navier_scipy.data_output_utils as dou
+    dou.logtofile(logstr='logfile_m1')
 
     scheme = 'CR'
     N = 3
     Re = 60
     tE = .2
     prob = 'cyl'
-    tol = 0  # 2**(-22)
-    Ntslist = [32, 64, 128, 256, 512]
-
-    # solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=0,  # 2**(-12),
-    #                     MaxIter=100,
-    #                     N=N, NtsList=[4096], scheme=scheme, prob=prob)
+    tol = 2**(-22)
+    Ntslist = [2048]
 
     solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol,
                         MaxIter=800,

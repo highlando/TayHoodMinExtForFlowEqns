@@ -11,16 +11,18 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 2
+samplerate = 4
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [32, 64, 128, 256, 512]
-Ntsref = 512
-tol = 0  # 2**(-18)
+Ntslist = [64, 128, 256, 512]  # , 1024, 2048]
+Ntsref = 2048
+tol = 2**(-22)
+method = 1
 
 svdatapathref = 'data/'
 svdatapath = 'data/'
 # svdatapath = 'edithadata/'
+# svdatapath = 'edithadata_scm/'  # with the scaled momentum eqn
 
 femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
@@ -35,8 +37,6 @@ dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
 J, MP = stokesmatsc['J'], stokesmatsc['MP']
 Nv = J.shape[1]
 
-method = 1
-
 # get the ref trajectories
 trange = np.linspace(0, tE, Ntsref+1)
 M, A = stokesmatsc['M'], stokesmatsc['A']
@@ -49,7 +49,7 @@ snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp,
                 V=femp['V'], Q=femp['Q'],
                 invinds=invinds, diribcs=femp['diribcs'],
                 start_ssstokes=True, trange=trange,
-                clearprvdata=True, paraviewoutput=True,
+                clearprvdata=False, paraviewoutput=True,
                 data_prfx='refveldata/',
                 vfileprfx='refveldata/v', pfileprfx='refveldata/p',
                 return_dictofpstrs=True, return_dictofvelstrs=True)
@@ -72,15 +72,25 @@ for Nts in Ntslist:
         vp = np.load(cdatstr + '.npy')
         v, p = expand_vp_dolfunc(PrP, vp=vp)
 
-        # cdatstrref = get_dtstr(t=tcur, **dtstrdctref)
         # vpref = np.load(cdatstrref + '.npy')
         # vref, pref = expand_vp_dolfunc(PrP, vp=vpref)
-        vref = np.load(vdref[t])
-        pref = np.load(pdref[t])
-        vref, pref = expand_vp_dolfunc(PrP, vc=vref, pc=pref)
+        vref = np.load(vdref[tcur] + '.npy')
+        pref = np.load(pdref[tcur] + '.npy')
+        # vpref = np.vstack([vref, pref])
+        vreff, preff = expand_vp_dolfunc(PrP, vc=vref, pc=pref)
+        # vdiff, pdiff = expand_vp_dolfunc(PrP, vc=vp[:Nv]-vref,
+        #                                  pc=vp[Nv:]-pref)
+        # prtrial = snu.get_pfromv(v=vref, **snsedict)
+        # vrtrial, prtrial = expand_vp_dolfunc(PrP, vc=vref, pc=prtrial)
+        # print 'pref', dolfin.norm(preff)
+        # print 'p', dolfin.norm(p)
+        # print 'p(v)', dolfin.norm(ptrial)
+        # print 'p(vref){0}\n'.format(dolfin.norm(prtrial))
 
-        elv.append(dolfin.errornorm(v, vref))
-        elp.append(dolfin.errornorm(p, pref))
+        elv.append(dolfin.errornorm(v, vreff))
+        elp.append(dolfin.errornorm(p, preff))
+        # elv.append(dolfin.norm(vdiff))
+        # elp.append(dolfin.norm(pdiff))
         cres = J*vp[:Nv]-fpbc
         ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
         # routine from time_int_schemes seems buggy for CR or 'g not 0'
