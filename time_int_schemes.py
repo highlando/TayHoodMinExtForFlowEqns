@@ -202,8 +202,13 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                                  ip_B=smamin_prec_fem_ip)
 
                 tstart = time.time()
+                betterstart = False
                 # define the ini value
                 if krylovini == 'upd':
+                    # extrapolating the initial value
+                    kiniv = qqpq_old + (qqpq_old - qqpq_oldold)
+                if krylovini == 'updold':
+                    betterstart = True
                     # extrapolating the initial value
                     kiniv = qqpq_old + (qqpq_old - qqpq_oldold)
                 elif krylovini == 'old':
@@ -211,11 +216,30 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 elif krylovini == 'zero':
                     kiniv = 0*qqpq_old
 
-                q1_tq2_p_q2_new = \
-                    krypy.linsys.RestartedGmres(cls, x0=kiniv,
-                                                tol=TolCor*TsP.linatol,
-                                                maxiter=TsP.MaxIter,
-                                                max_restarts=8)
+                if betterstart:
+                    # check if upd is better just because of better inival
+                    qqpq_dmp = krypy.linsys.Gmres(cls, x0=kiniv, tol=10.,
+                                                  maxiter=TsP.MaxIter)
+                    updinires = qqpq_dmp.resnorms[0]
+                    print 'upd ini residual ', updinires
+                    qqpq_aux = krypy.linsys.Gmres(cls, x0=qqpq_old,
+                                                  tol=updinires,
+                                                  maxiter=TsP.MaxIter)
+                    auxit = len(qqpq_aux.resnorms)
+                    oldinr = qqpq_aux.resnorms[0]
+                    print ('spent {1} iters to reach updinires {0} from ' +
+                           'oldinires {2}').format(updinires, auxit, oldinr)
+                    niniv = np.atleast_2d(qqpq_aux.xk)
+                    q1_tq2_p_q2_new = krypy.linsys.\
+                        Gmres(cls, x0=niniv, tol=TolCor*TsP.linatol,
+                              maxiter=TsP.MaxIter)
+
+                else:
+                    q1_tq2_p_q2_new = \
+                        krypy.linsys.RestartedGmres(cls, x0=kiniv,
+                                                    tol=TolCor*TsP.linatol,
+                                                    maxiter=TsP.MaxIter,
+                                                    max_restarts=8)
                 tend = time.time()
                 qqpq_oldold = qqpq_old
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)

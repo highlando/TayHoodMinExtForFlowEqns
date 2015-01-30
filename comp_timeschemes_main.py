@@ -267,19 +267,22 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='upd')
+    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+                        MaxIter=800, NtsList=Ntsl, globalcount=True,
+                        krylovini='updold')
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='old')
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='zero')
-    method = 2
-    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=Ntsl, globalcount=True,
-                        krylovini='upd')
-    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=Ntsl, globalcount=True,
-                        krylovini='old')
-    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=Ntsl, globalcount=True,
-                        krylovini='zero')
+    # method = 2
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='upd')
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='old')
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='zero')
