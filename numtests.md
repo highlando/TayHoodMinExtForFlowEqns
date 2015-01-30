@@ -44,6 +44,12 @@ N=3, tE=.2, Re=60
 Schedule for Experiments as of Jan 15th
 ===
 
+Index 1
+---
+ * `tol=2**(-14)` -- no convergence woe 
+ * `tol=2**(-18)` -- looks cool - but goes nuts for `Nts=512`
+ * `tol=2**(-22)` -- looks cool - but goes nuts for `Nts=512`
+
 Index 2 
 ---
  * Get it run on *Heinrich*
