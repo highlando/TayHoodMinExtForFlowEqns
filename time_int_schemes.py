@@ -233,6 +233,11 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     q1_tq2_p_q2_new = krypy.linsys.\
                         Gmres(cls, x0=niniv, tol=TolCor*TsP.linatol,
                               maxiter=TsP.MaxIter)
+                    needit = len(q1_tq2_p_q2_new.resnorms)
+                    finr = q1_tq2_p_q2_new.resnorms[-1]
+                    iinr = q1_tq2_p_q2_new.resnorms[0]
+                    print ('and {0} iters to reach final res {1} from ' +
+                           'new ini res {2}').format(needit, finr, iinr)
 
                 else:
                     q1_tq2_p_q2_new = \

@@ -36,7 +36,7 @@ class TimestepParams(object):
         self.SaveIniVal = False
         self.SaveTStps = False
         self.UsePreTStps = False
-        self.TolCorB = True
+        self.TolCorB = False
 
 
 def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
     #                     MaxIter=85, NtsList=[512])
     # Ntsl = [16, 32]  # , 64, 128, 256]
-    Ntsl = [512]
+    Ntsl = [128, 256]
     method = 1
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
