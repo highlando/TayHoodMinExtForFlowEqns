@@ -97,6 +97,21 @@ def jsd_calc_l2errs(JsDict, plot=False, ptikzfile=None):
                         dx=dx)))
         velerrl.append(np.sqrt(np.trapz(np.square(jsd['VelEr'][i]), dx=dx)))
         perrl.append(np.sqrt(np.trapz(np.square(jsd['PEr'][i]), dx=dx)))
+    try:
+        dconresl, momresl, tolcorl = [], [], []
+        for i in range(len(jsd['TimeDiscs'])):
+            dx = timelength / jsd['TimeDiscs'][i]
+            dconresl.append(np.sqrt(np.trapz(np.square(jsd['DContiRes'][i]),
+                            dx=dx)))
+            momresl.append(np.sqrt(np.trapz(np.square(jsd['MomRes'][i]),
+                           dx=dx)))
+            tolcorl.append(np.sqrt(np.trapz(np.square(jsd['TolCor'][i]),
+                           dx=dx)))
+
+        allres = True
+    except:
+        allres = False
+        print 'not all residuals were recorded'
 
     Ntsl = jsd['TimeDiscs']
 
@@ -104,8 +119,23 @@ def jsd_calc_l2errs(JsDict, plot=False, ptikzfile=None):
     print 'N = ', jsd['SpaceDiscParam']
     print 'Nts = ', jsd['TimeDiscs']
     print 'Velocity Errors: ', velerrl
-    print 'Presure Errors: ', perrl
+    print 'Pressure Errors: ', perrl
     print 'Conti Residuals: ', contresl
+    if allres:
+        print 'DConti Residuals: ', dconresl
+        print 'Momenteq Residuals: ', momresl
+        print 'TolCor: ', tolcorl
+        if plot:
+            plt.figure()
+            plt.loglog(Ntsl, dconresl, 'o')
+            plt.title('dconres')
+            plt.figure()
+            plt.loglog(Ntsl, momresl, 'v')
+            plt.title('momres')
+            plt.figure()
+            plt.loglog(Ntsl, tolcorl, '^')
+            plt.title('tolcors')
+
     if plot:
         plt.figure()
         plt.loglog(Ntsl, velerrl, 'o')

@@ -43,7 +43,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
 
     if scheme == 'TH':
         print 'solving index 1 -- with TH scheme'
-        dname = 'SmeMcBc_N{0}nu{1]_TH'.format(N, PrP.nu)
+        dname = 'SmeMcBc_N{0}nu{1}_TH'.format(N, PrP.nu)
         get_b2inds_rtn = get_B2_bubbleinds
         args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
     elif scheme == 'CR':
