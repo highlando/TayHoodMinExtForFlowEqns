@@ -2,7 +2,6 @@ from dolfin import errornorm, TrialFunction, Function, assemble, div, dx, norm
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
-from scipy.io import loadmat
 
 import dolfin_to_nparrays as dtn
 import time
@@ -23,22 +22,22 @@ try:
         """M^-1 inner product
 
         """
-        ls = krypy.linsys.LinearSystem(M, q2, self_adjoint=True)
-        return np.dot(q1.T.conj(), (krypy.linsys.Cg(ls, tol=1e-12)).xk)
+        try:
+            # maybe M comes factorized
+            miq2 = np.atleast_2d(M.solve(q2.flatten())).T
+        except AttributeError:
+            ls = krypy.linsys.LinearSystem(M, q2, self_adjoint=True)
+            miq2 = (krypy.linsys.Cg(ls, tol=1e-12)).xk
 
-    def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc):
-        """ M^-1 ip for the extended system
+        return np.dot(q1.T.conj(), miq2)
 
-        """
-        return mass_fem_ip(qqpq1[:Nv, ], qqpq2[:Nv, ], Mv) + \
-            mass_fem_ip(qqpq1[Nv:-Npc, ], qqpq2[Nv:-Npc, ], Mp) + \
-            mass_fem_ip(qqpq1[-Npc:, ], qqpq2[-Npc:, ], Mp)
 except NameError:
     pass  # no krypy -- I hope we don't need it
 
 
 def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
-                            PrP, TsP, vp_init=None, qqpq_init=None):
+                            PrP, TsP, vp_init=None, qqpq_init=None,
+                            saveallres=True):
     """ halfexplicit euler for the NSE in index 1 formulation
 
     """
@@ -83,11 +82,14 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     PFac = 1  # dt/WCD
     PFacI = 1  # WCD/dt
 
-    IterA1 = MFac*sps.hstack([1.0/dt*M1Sme + A1Sme, M2Sme,
+    # rescale q1
+    q1facI = 1.
+
+    IterA1 = MFac*sps.hstack([q1facI*(1.0/dt*M1Sme + A1Sme), M2Sme,
                               -PFacI*BSme.T, A2Sme])
-    IterA2 = WCD*sps.hstack([1.0/dt*B1Sme, B2Sme,
+    IterA2 = WCD*sps.hstack([q1facI*(1.0/dt*B1Sme), B2Sme,
                              sps.csr_matrix((Npc, 2*Npc))])
-    IterA3 = WC*sps.hstack([B1Sme, sps.csr_matrix((Npc, 2*Npc)), B2Sme])
+    IterA3 = WC*sps.hstack([q1facI*B1Sme, sps.csr_matrix((Npc, 2*Npc)), B2Sme])
 
     IterA = sps.vstack([IterA1, IterA2, IterA3])
 
@@ -102,18 +104,22 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
         MLumpI = 1. / MLump
         # MLumpI1 = MLumpI[:-(Np - 1), ]
         # MLumpI2 = MLumpI[-(Np - 1):, ]
+        B2SmeTfac = spsla.splu(B2Sme.T)
+        B2Smefac = spsla.splu(B2Sme)
 
         def PrecByB2(qqpq):
             qq = MLumpI*qqpq[:Nv, ]
 
             p = qqpq[Nv:-Npc, ]
-            p = spsla.spsolve(B2Sme, p)
+            p = B2Smefac.solve(p.flatten())
             p = MLump2*np.atleast_2d(p).T
-            p = spsla.spsolve(B2Sme.T, p)
+            # p = spsla.spsolve(B2Sme.T, p)
+            p = B2SmeTfac.solve(p.flatten())
             p = np.atleast_2d(p).T
 
             q2 = qqpq[-Npc:, ]
-            q2 = spsla.spsolve(B2Sme, q2)
+            # q2 = spsla.spsolve(B2Sme, q2)
+            q2 = B2Smefac.solve(q2.flatten())
             q2 = np.atleast_2d(q2).T
 
             return np.vstack([np.vstack([qq, -p]), q2])
@@ -125,31 +131,59 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             dtype=np.float32)
         TsP.Ml = MGmr
 
-    def smamin_prec_fem_ip(qqpq1, qqpq2):
+    Mcfac = spsla.splu(MSme)
+    MPcfac = spsla.splu(MPc)
+
+    def _MInvInd1(qqpq):
+        qq = qqpq[:Nv, ]
+        p = qqpq[Nv:-Npc, ]
+        q2 = qqpq[-Npc:, ]
+        miqq = np.atleast_2d(Mcfac.solve(qq.flatten())).T
+        mip = np.atleast_2d(MPcfac.solve(p.flatten())).T
+        miq2 = np.atleast_2d(MPcfac.solve(q2.flatten())).T
+        return np.vstack([miqq, mip, miq2])
+
+    # MInvInd1 = spsla.LinearOperator((Nv + 2*Npc, Nv + 2*Npc),
+    #                                 matvec=_MInvInd1, dtype=np.float32)
+
+    def smamin_prec_fem_ip(qqpq1, qqpq2, retparts=False):
         """ M ip for the preconditioned residuals
 
         """
-        return np.dot(qqpq1[:Nv, ].T.conj(), MSme*qqpq2[:Nv, ]) + \
-            np.dot(qqpq1[Nv:-Npc, ].T.conj(), MPc*qqpq2[Nv:-Npc, ]) + \
-            np.dot(qqpq1[-Npc:, ].T.conj(), MPc*qqpq2[-Npc:, ])
+        if retparts:
+            return (np.dot(qqpq1[:Nv, ].T.conj(), MSme*qqpq2[:Nv, ]),
+                    np.dot(qqpq1[Nv:-Npc, ].T.conj(), MPc*qqpq2[Nv:-Npc, ]),
+                    np.dot(qqpq1[-Npc:, ].T.conj(), MPc*qqpq2[-Npc:, ]))
+        else:
+            return np.dot(qqpq1[:Nv, ].T.conj(), MSme*qqpq2[:Nv, ]) + \
+                np.dot(qqpq1[Nv:-Npc, ].T.conj(), MPc*qqpq2[Nv:-Npc, ]) + \
+                np.dot(qqpq1[-Npc:, ].T.conj(), MPc*qqpq2[-Npc:, ])
+
+    def smamin_fem_ip(qqpq1, qqpq2, Mv, Mp, Nv, Npc, dt=1.):
+        """ M^-1 ip for the extended system
+
+        """
+        return mass_fem_ip(qqpq1[:Nv, ], qqpq2[:Nv, ], Mv) + \
+            dt*mass_fem_ip(qqpq1[Nv:-Npc, ], qqpq2[Nv:-Npc, ], Mp) + \
+            mass_fem_ip(qqpq1[-Npc:, ], qqpq2[-Npc:, ], Mp)
 
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None, pdof=PrP.Pdof)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
 
-    if TsP.svdatatdsc:
-        dtstrdct = dict(prefix=TsP.svdatapath, method=1, N=PrP.N,
-                        nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
-        cdatstr = get_dtstr(t=0, **dtstrdct)
-        try:
-            np.load(cdatstr + '.npy')
-            print 'loaded data from ', cdatstr, ' ...'
-        except IOError:
-            np.save(cdatstr, vp_init)
-            print 'saving to ', cdatstr, ' ...'
+    dtstrdct = dict(prefix=TsP.svdatapath, method=1, N=PrP.N,
+                    tolcor=TsP.TolCorB,
+                    nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
+    cdatstr = get_dtstr(t=0, **dtstrdct)
+    try:
+        np.load(cdatstr + '.npy')
+        print 'loaded data from ', cdatstr, ' ...'
+    except IOError:
+        np.save(cdatstr, vp_init)
+        print 'saving to ', cdatstr, ' ...'
 
     vp_old = np.copy(vp_init)
-    q1_old = vp_init[~B2BoolInv, ]
+    q1_old = 1./q1facI*vp_init[~B2BoolInv, ]
     q2_old = vp_init[B2BoolInv, ]
 
     if qqpq_init is None and TsP.linatol > 0:
@@ -170,6 +204,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     qqpq_oldold = qqpq_old
 
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
+    MomRes, DContiRes = [], []
 
     # compute 1st time step by direct solve to initialize the krylov upd scheme
     inikryupd = TsP.inikryupd
@@ -177,22 +212,38 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
-            if TsP.svdatatdsc:
-                cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
             try:
                 qqpq_next = np.load(cdatstr + '_qqpq' + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
                 qqpq_oldold = qqpq_old
                 qqpq_old = qqpq_next
+                TolCor = 'n.a.'
                 if i == 2:
                     iniiterfac = 1  # fac only in the first Krylov Call
+
+                # Reconstruct data of the iterative solution
+                if TsP.linatol > 0 and (TsP.TolCorB or saveallres):
+                    ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
+                    gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
+                    Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
+                                                  WCD*B1Sme*q1_old]) +\
+                        np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
+                    Iterrhs = np.vstack([Iterrhs, WC*FpbcSmeC])
+                    if TsP.TolCorB:
+                        NormRhsInd1 = np.sqrt(
+                            smamin_fem_ip(Iterrhs, Iterrhs, Mcfac, MPcfac,
+                                          Nv, Npc, dt=np.sqrt(dt)))[0][0]
+                        TolCor = 1.0 / np.max([NormRhsInd1, 1])
+                    else:
+                        TolCor = 1.0
+
             except IOError:
                 print 'computing data for ', cdatstr, ' ...'
 
+                # set up right hand side
                 ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
-
                 gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
-
                 Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
                                               WCD*B1Sme*q1_old]) +\
                     np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
@@ -204,33 +255,27 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                     TolCor = 0
                 else:
+                    # Norm of rhs of index-1 formulation
+                    # used to correct the relative residual
+                    # such that the absolute residual stays constant
+                    if TsP.TolCorB:
+                        NormRhsInd1 = np.sqrt(
+                            smamin_fem_ip(Iterrhs, Iterrhs, MSme, MPc,
+                                          Nv, Npc, dt=np.sqrt(dt)))[0][0]
+                        TolCor = 1.0 / np.max([NormRhsInd1, 1])
+                    else:
+                        TolCor = 1.0
+
                     if inikryupd and tcur == t0:
                         print '\n1st step direct solve to initialize krylov\n'
                         q1_tq2_p_q2_new = spsla.spsolve(IterA, Iterrhs)
+                        qqpq_oldold = qqpq_old
                         qqpq_old = np.atleast_2d(q1_tq2_p_q2_new).T
                         TolCor = 0
                         inikryupd = False  # only once !!
                     else:
-                        # Norm of rhs of index-1 formulation
-                        if TsP.TolCorB:
-                            NormRhsInd1 = np.sqrt(
-                                smamin_fem_ip(Iterrhs, Iterrhs,
-                                              MSme, MPc, Nv, Npc))[0][0]
-                            TolCor = 1.0 / np.max([NormRhsInd1, 1])
-
-                        else:
-                            TolCor = 1.0
-                            # Values previous calculations to initialize gmres
-                        if TsP.UsePreTStps:
-                            dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
-                            try:
-                                IniV = loadmat(dname)
-                                qqpq_old = IniV['qqpq_old']
-                            except IOError:
-                                pass
-
                         cls = krypy.linsys.\
-                            LinearSystem(IterA, Iterrhs, Ml=TsP.Ml, Mr=TsP.Mr,
+                            LinearSystem(IterA, Iterrhs, Ml=MGmr,
                                          ip_B=smamin_prec_fem_ip)
 
                         tstart = time.time()
@@ -254,46 +299,49 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                         print 'Elapsed time {0}'.format(tend - tstart)
                         iniiterfac = 1  # fac only in the first Krylov Call
 
-                    if TsP.SaveTStps:
-                        from scipy.io import savemat
-                        dname = 'ValSmaMinNts%dN%dtcur%e' % (Nts, N, tcur)
-                        savemat(dname, {'qqpq_old': qqpq_old})
+                np.save(cdatstr + '_qqpq', qqpq_old)
 
-                q1_old = qqpq_old[:Nv - Npc, ]
-                q2_old = qqpq_old[-Npc:, ]
+            q1_old = q1facI*qqpq_old[:Nv - Npc, ]
+            q2_old = qqpq_old[-Npc:, ]
 
-                # Extract the 'actual' velocity and pressure
-                vc = np.zeros((Nv, 1))
-                vc[~B2BoolInv, ] = q1_old
-                vc[B2BoolInv, ] = q2_old
-                # print np.linalg.norm(vc)
+            # Extract the 'actual' velocity and pressure
+            vc = np.zeros((Nv, 1))
+            vc[~B2BoolInv, ] = q1_old
+            vc[B2BoolInv, ] = q2_old
+            # print np.linalg.norm(vc)
 
-                pc = PFacI*qqpq_old[Nv:Nv + Npc, ]
+            pc = PFacI*qqpq_old[Nv:Nv + Npc, ]
 
-                v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc,
-                                         pdof=PrP.Pdof)
+            v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc,
+                                     pdof=PrP.Pdof)
 
-                if TsP.svdatatdsc:
-                    cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
-                    np.save(cdatstr, np.vstack([vc, pc]))
-                    np.save(cdatstr + '_qqpq', qqpq_old)
+            cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            np.save(cdatstr, np.vstack([vc, pc]))
 
             tcur += dt
             # the errors and residuals
+            # ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+            TolCorL.append(TolCor)
+            ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
             try:
                 vCur, pCur = PrP.v, PrP.p
                 vCur.t = tcur
                 pCur.t = tcur - dt
-
-                ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
                 VelEr.append(errornorm(vCur, v))
                 PEr.append(errornorm(pCur, p))
-                TolCorL.append(TolCor)
             except AttributeError:
-                ContiRes.append(0)
                 VelEr.append(0)
                 PEr.append(0)
-                TolCorL.append(0)
+
+            if saveallres:
+                res = IterA*qqpq_old - Iterrhs
+                (mr, mcd, mc) = smamin_prec_fem_ip(res, res, retparts=True)
+                MomRes.append(np.sqrt(mr)[0][0])
+                DContiRes.append(np.sqrt(mcd)[0][0])
+                ContiRes[-1] = np.sqrt(mc)[0][0]
+                # print 'Res is dconti: ', np.sqrt(mcd)[0][0]
+                # print 'Res is conti: ', np.sqrt(mc)[0][0]
+                # print 'Res is moment: ', np.sqrt(mr+mc+mcd)[0][0]
 
             if i + etap == 1 and TsP.SaveIniVal:
                 from scipy.io import savemat
@@ -306,10 +354,13 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             TsP.UpFiles.u_file << v, tcur
             TsP.UpFiles.p_file << p, tcur
 
-    TsP.Residuals.ContiRes.append(ContiRes)
     TsP.Residuals.VelEr.append(VelEr)
     TsP.Residuals.PEr.append(PEr)
     TsP.TolCor.append(TolCorL)
+    TsP.Residuals.ContiRes.append(ContiRes)
+    if saveallres:
+        TsP.Residuals.MomRes.append(MomRes)
+        TsP.Residuals.DContiRes.append(DContiRes)
 
     return
 
@@ -336,16 +387,15 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     # PFac = -1  # -1 for symmetry (if CFac==1)
     PFacI = -1./dt
 
-    if TsP.svdatatdsc:
-        dtstrdct = dict(prefix=TsP.svdatapath, method=2, N=PrP.N,
-                        nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
-        cdatstr = get_dtstr(t=0, **dtstrdct)
-        try:
-            np.load(cdatstr + '.npy')
-            print 'loaded data from ', cdatstr, ' ...'
-        except IOError:
-            np.save(cdatstr, vp_init)
-            print 'saving to ', cdatstr, ' ...'
+    dtstrdct = dict(prefix=TsP.svdatapath, method=2, N=PrP.N,
+                    nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
+    cdatstr = get_dtstr(t=0, **dtstrdct)
+    try:
+        np.load(cdatstr + '.npy')
+        print 'loaded data from ', cdatstr, ' ...'
+    except IOError:
+        np.save(cdatstr, vp_init)
+        print 'saving to ', cdatstr, ' ...'
 
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
@@ -404,8 +454,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
-            if TsP.svdatatdsc:
-                cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
             try:
                 vp_next = np.load(cdatstr + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
@@ -473,9 +522,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                         print 'Elapsed time {0}'.format(tend - tstart)
                         iniiterfac = 1  # fac only in the first Krylov Call
 
-                if TsP.svdatatdsc:
-                    np.save(cdatstr, np.vstack([vp_old[:Nv],
-                                                PFacI*vp_old[Nv:]]))
+                np.save(cdatstr, np.vstack([vp_old[:Nv],
+                                            PFacI*vp_old[Nv:]]))
 
             vc = vp_old[:Nv, ]
             print 'Norm of current v: ', np.linalg.norm(vc)
@@ -622,6 +670,6 @@ def pinthep(B, BT, M, fp, vp_init, pdof):
 
 
 def get_dtstr(t=None, prefix='', method=None, N=None,
-              nu=None, Nts=None, tol=None, te=None, **kwargs):
-    return prefix + '_m{0}_N{1}_nu{2}_Nts{3}_tol_{4}_te{6}_t{5}'.\
-        format(method, N, nu, Nts, tol, t, te)
+              nu=None, Nts=None, tol=None, te=None, tolcor=None, **kwargs):
+    return prefix + '_m{0}_N{1}_nu{2}_Nts{3}_tol{4}_tolcor{7}_te{6}_t{5}'.\
+        format(method, N, nu, Nts, tol, t, te, tolcor)

@@ -11,11 +11,15 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 2
+samplerate = 8
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64, 128, 256]
-Ntsref = 4096
+Ntslist = [64]  # , 128, 256, 512, 1024, 2048]
+Ntsref = 2048
+tol = 2**(-18)
+tolcor = True
+method = 1
+
 svdatapathref = 'data/'
 svdatapath = 'data/'
 # svdatapath = 'edithadata/'
@@ -41,7 +45,7 @@ errpl = []
 rescl = []
 for Nts in Ntslist:
     dtstrdct = dict(prefix=svdatapath, method=method, N=PrP.N,
-                    nu=PrP.nu, Nts=Nts, tol=tol, te=tE)
+                    nu=PrP.nu, Nts=Nts, tol=tol, te=tE, tolcor=tolcor)
 
     elv = []
     elp = []

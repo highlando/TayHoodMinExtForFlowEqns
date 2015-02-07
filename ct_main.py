@@ -39,7 +39,6 @@ class TimestepParams(object):
         self.ParaviewOutput = False
         self.SaveIniVal = False
         self.SaveTStps = False
-        self.UsePreTStps = False
         self.TolCorB = False
         self.svdatatdsc = True
         self.svdatapath = 'data/'
@@ -49,7 +48,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
                         scheme='TH', nu=0, Re=None, inikryupd=None,
-                        prob=None):
+                        tolcor=False, prob=None):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -64,8 +63,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
     if prob == 'cyl':
-        femp, stokesmatsc, rhsd_vfrc, \
-            rhsd_stbc, data_prfx, ddir, proutdir \
+        femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
             = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                                 scheme=scheme)
 
@@ -130,12 +128,14 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         TsP.SaveIniVal = SaveIniVal
     if inikryupd is not None:
         TsP.inikryupd = inikryupd
+    TsP.TolCorB = tolcor
 
     print 'Mesh parameter N = %d' % N
     print 'Time interval [%d,%1.2f]' % (TsP.t0, TsP.tE)
     print 'Omega = %d' % TsP.Omega
     print 'You have chosen %s for time integration' % methdict[method]
     print 'The tolerance for the linear solver is %e' % TsP.linatol
+    print 'tolcor -- controlling the abs residuals -- is ', tolcor
 
     if method == 1:
         # Rearrange the matrices and rhs
@@ -257,6 +257,8 @@ def save_simu(TsP, PrP, scheme=''):
                   'ContiRes': TsP.Residuals.ContiRes,
                   'VelEr': TsP.Residuals.VelEr,
                   'PEr': TsP.Residuals.PEr,
+                  'MomRes': TsP.Residuals.MomRes,
+                  'DContiRes': TsP.Residuals.DContiRes,
                   'TolCor': TsP.TolCor}
 
     JsFile = 'json/Omeg%dTol%0.2eNTs%dto%dMesh%d' % (
@@ -283,6 +285,8 @@ class NseResiduals(object):
         self.ContiRes = []
         self.VelEr = []
         self.PEr = []
+        self.MomRes = []
+        self.DContiRes = []
 
 
 class UpFiles(object):
@@ -315,6 +319,5 @@ if __name__ == '__main__':
                         MaxIter=700,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
-    # solve_euler_timedep(method=2, tE=2., Re=Re, LinaTol=2**(-12),
-    #                     MaxIter=600,
-    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+    # solve_euler_timedep(method=1, tE=1., LinaTol=2**(-12), tolcor=True,
+    #                     MaxIter=400, N=40, NtsList=Ntslist)
