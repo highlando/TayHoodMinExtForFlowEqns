@@ -26,6 +26,7 @@ class TimestepParams(object):
         self.SadPtPrec = True
         self.UpFiles = UpFiles(method)
         self.Residuals = NseResiduals()
+        self.globalcounts = GlobalCounts()
         self.linatol = 1e-4  # 0 for direct sparse solver
         self.TolCor = []
         self.MaxIter = 85
@@ -208,6 +209,8 @@ def save_simu(TsP, PrP, globalcount=False, krylovini=None):
         PrP.N) + TsP.method + '.json'
 
     if globalcount:
+        DictOfVals.update({'NumIter': TsP.globalcounts.NumIter,
+                           'TimeIter': TsP.globalcounts.TimeIter})
         JsFile = JsFile + '_globalcount' + '_kiniv{0}'.format(krylovini)
         f = open(JsFile, 'w')
         f.write(json.dumps(DictOfVals))
@@ -235,6 +238,14 @@ class NseResiduals(object):
         self.PEr = []
 
 
+class GlobalCounts(object):
+
+    def __init__(self):
+        self.TimeIter = []
+        self.NumIter = []
+        self.Info = ''
+
+
 class UpFiles(object):
 
     def __init__(self, name=None):
@@ -250,21 +261,25 @@ if __name__ == '__main__':
     dou.logtofile(logstr='logfile4')
     # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
     #                     MaxIter=85, NtsList=[512])
-    Ntsl = [16, 32, 64, 128, 256]
+    # Ntsl = [16, 32]  # , 64, 128, 256]
+    Ntsl = [128, 256]
     method = 1
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='upd')
+    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+                        MaxIter=800, NtsList=Ntsl, globalcount=True,
+                        krylovini='updold')
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='old')
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='zero')
-    method = 2
-    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=Ntsl, globalcount=True,
-                        krylovini='upd')
+    # method = 2
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='upd')
     # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
     #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
     #                     krylovini='old')

@@ -155,6 +155,8 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     qqpq_oldold = qqpq_old
 
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
+    if globalcount:
+        NumIter, TimeIter = [], []
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
@@ -200,8 +202,13 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                                  ip_B=smamin_prec_fem_ip)
 
                 tstart = time.time()
+                betterstart = False
                 # define the ini value
                 if krylovini == 'upd':
+                    # extrapolating the initial value
+                    kiniv = qqpq_old + (qqpq_old - qqpq_oldold)
+                if krylovini == 'updold':
+                    betterstart = True
                     # extrapolating the initial value
                     kiniv = qqpq_old + (qqpq_old - qqpq_oldold)
                 elif krylovini == 'old':
@@ -209,11 +216,35 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 elif krylovini == 'zero':
                     kiniv = 0*qqpq_old
 
-                q1_tq2_p_q2_new = \
-                    krypy.linsys.RestartedGmres(cls, x0=kiniv,
-                                                tol=TolCor*TsP.linatol,
-                                                maxiter=TsP.MaxIter,
-                                                max_restarts=8)
+                if betterstart:
+                    # check if upd is better just because of better inival
+                    qqpq_dmp = krypy.linsys.Gmres(cls, x0=kiniv, tol=10.,
+                                                  maxiter=TsP.MaxIter)
+                    updinires = qqpq_dmp.resnorms[0]
+                    print 'upd ini residual ', updinires
+                    qqpq_aux = krypy.linsys.Gmres(cls, x0=qqpq_old,
+                                                  tol=updinires,
+                                                  maxiter=TsP.MaxIter)
+                    auxit = len(qqpq_aux.resnorms)
+                    oldinr = qqpq_aux.resnorms[0]
+                    print ('spent {1} iters to reach updinires {0} from ' +
+                           'oldinires {2}').format(updinires, auxit, oldinr)
+                    niniv = np.atleast_2d(qqpq_aux.xk)
+                    q1_tq2_p_q2_new = krypy.linsys.\
+                        Gmres(cls, x0=niniv, tol=TolCor*TsP.linatol,
+                              maxiter=TsP.MaxIter)
+                    needit = len(q1_tq2_p_q2_new.resnorms)
+                    finr = q1_tq2_p_q2_new.resnorms[-1]
+                    iinr = q1_tq2_p_q2_new.resnorms[0]
+                    print ('and {0} iters to reach final res {1} from ' +
+                           'new ini res {2}').format(needit, finr, iinr)
+
+                else:
+                    q1_tq2_p_q2_new = \
+                        krypy.linsys.RestartedGmres(cls, x0=kiniv,
+                                                    tol=TolCor*TsP.linatol,
+                                                    maxiter=TsP.MaxIter,
+                                                    max_restarts=8)
                 tend = time.time()
                 qqpq_oldold = qqpq_old
                 qqpq_old = np.atleast_2d(q1_tq2_p_q2_new.xk)
@@ -248,19 +279,21 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             tcur += dt
 
             if globalcount:
-                ContiRes.append(numiters)
-                VelEr.append(teelapsd)
+                NumIter.append(numiters)
+                TimeIter.append(teelapsd)
                 PEr.append('inischeme: ' + krylovini)
 
-            else:
-                # the errors and residuals
-                vCur, pCur = PrP.v, PrP.p
-                vCur.t = tcur
-                pCur.t = tcur - dt
+            # the errors and residuals
+            vCur, pCur = PrP.v, PrP.p
+            vCur.t = tcur
+            pCur.t = tcur - dt
 
+            if globalcount:
+                ContiRes.append(0)  # TODO: fix this -- had troubles on pc764
+            else:
                 ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
-                VelEr.append(errornorm(vCur, v))
-                PEr.append(errornorm(pCur, p))
+            VelEr.append(errornorm(vCur, v))
+            PEr.append(errornorm(pCur, p))
             TolCorL.append(TolCor)
 
             if i + etap == 1 and TsP.SaveIniVal:
@@ -278,6 +311,9 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
     TsP.Residuals.VelEr.append(VelEr)
     TsP.Residuals.PEr.append(PEr)
     TsP.TolCor.append(TolCorL)
+    if globalcount:
+        TsP.globalcounts.NumIter.append(NumIter)
+        TsP.globalcounts.TimeIter.append(TimeIter)
 
     return
 
@@ -317,6 +353,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
     vp_old = vp_init
     vp_oldold = vp_old
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
+    if globalcount:
+        NumIter, TimeIter = [], []
 
     # Mvp = sps.csr_matrix(sps.block_diag((Mc, MPc)))
     # Mvp = sps.eye(Mc.shape[0] + MPc.shape[0])
@@ -367,7 +405,6 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
                            CFac*fpbc[:-1, ]])
 
             if TsP.linatol == 0:
-                # ,vp_old,tol=TsP.linatol)
                 vp_new = spsla.spsolve(IterA, Iterrhs)
                 vp_old = np.atleast_2d(vp_new).T
 
@@ -385,7 +422,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
 
                 # extrapolating the initial value
                 if krylovini == 'upd':
-                    kiniv = vp_old + (vp_old - vp_oldold)
+                    kiniv = vp_old + (vp_old - vp_oldold)  # for equidistant
                 elif krylovini == 'old':
                     kiniv = vp_old
                 elif krylovini == 'zero':
@@ -418,20 +455,20 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
             tcur += dt
 
             if globalcount:
-                ContiRes.append(numiters)
-                VelEr.append(teelapsd)
-                PEr.append('inischeme: ' + krylovini)
+                NumIter.append(numiters)
+                TimeIter.append(teelapsd)
 
+            vCur, pCur = PrP.v, PrP.p
+            vCur.t = tcur
+            pCur.t = tcur - dt
+
+            if globalcount:
+                ContiRes.append(0)  # TODO: fix this -- had troubles on pc764
             else:
-                # the errors
-                vCur, pCur = PrP.v, PrP.p
-                vCur.t = tcur
-                pCur.t = tcur - dt
-
                 ContiRes.append(comp_cont_error(v, fpbc, PrP.Q))
-                VelEr.append(errornorm(vCur, v))
-                PEr.append(errornorm(pCur, p))
-                TolCorL.append(TolCor)
+            VelEr.append(errornorm(vCur, v))
+            PEr.append(errornorm(pCur, p))
+            TolCorL.append(TolCor)
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
 
@@ -443,6 +480,9 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, vp_init, PrP, TsP,
     TsP.Residuals.VelEr.append(VelEr)
     TsP.Residuals.PEr.append(PEr)
     TsP.TolCor.append(TolCorL)
+    if globalcount:
+        TsP.globalcounts.NumIter.append(NumIter)
+        TsP.globalcounts.TimeIter.append(TimeIter)
 
     return
 
