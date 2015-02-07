@@ -240,7 +240,6 @@ def halfexp_euler_smarminex(MSme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             vc = np.zeros((Nv, 1))
             vc[~B2BoolInv, ] = q1_old
             vc[B2BoolInv, ] = q2_old
-            print np.linalg.norm(vc)
 
             pc = PFacI*qqpq_old[Nv:Nv + Np - 1, ]
 

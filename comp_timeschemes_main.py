@@ -247,21 +247,27 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     import dolfin_navier_scipy.data_output_utils as dou
-    dou.logtofile(logstr='logfile3')
+    dou.logtofile(logstr='logfile4')
     # solve_euler_timedep(method=1, N=40, LinaTol=2**(-12),
     #                     MaxIter=85, NtsList=[512])
-    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=[16, 32], globalcount=True,
+    Ntsl = [16, 32, 64, 128, 256]
+    method = 1
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='upd')
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='old')
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='zero')
+    method = 2
+    solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+                        MaxIter=800, NtsList=Ntsl, globalcount=True,
                         krylovini='upd')
-    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=[16, 32], globalcount=True,
-                        krylovini='old')
-    solve_euler_timedep(method=1, N=10, LinaTol=2**(-12),
-                        MaxIter=800, NtsList=[16, 32], globalcount=True,
-                        krylovini='zero')
-    # solve_euler_timedep(method=1, N=80, NtsList=[16])
-    # solve_euler_timedep(method=1, N=80, NtsList=[32])
-    # solve_euler_timedep(method=1, N=80, NtsList=[64])
-    # solve_euler_timedep(method=1, N=80, NtsList=[16])
-    # solve_euler_timedep(method=1, N=80, NtsList=[32])
-    # solve_euler_timedep(method=1, N=80, NtsList=[64])
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='old')
+    # solve_euler_timedep(method=method, N=40, LinaTol=2**(-12),
+    #                     MaxIter=800, NtsList=Ntsl, globalcount=True,
+    #                     krylovini='zero')
