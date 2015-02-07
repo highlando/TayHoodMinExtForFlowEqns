@@ -474,7 +474,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                         iniiterfac = 1  # fac only in the first Krylov Call
 
                 if TsP.svdatatdsc:
-                    np.save(cdatstr, vp_old)
+                    np.save(cdatstr, np.vstack([vp_old[:Nv],
+                                                PFacI*vp_old[Nv:]]))
 
             vc = vp_old[:Nv, ]
             print 'Norm of current v: ', np.linalg.norm(vc)

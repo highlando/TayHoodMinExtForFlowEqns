@@ -1,7 +1,10 @@
 import dolfin
 import numpy as np
 from time_int_schemes import expand_vp_dolfunc, get_dtstr
+
 import dolfin_navier_scipy.problem_setups as dnsps
+import dolfin_navier_scipy.stokes_navier_utils as snu
+
 from prob_defs import FempToProbParams
 
 import matlibplots.conv_plot_utils as cpu
@@ -13,11 +16,10 @@ samplerate = 2
 N, Re, scheme, tE = 3, 60, 'CR', .2
 Ntslist = [64, 128, 256]
 Ntsref = 4096
-tol = 2**(-22)
-
 svdatapathref = 'data/'
-# svdatapath = 'data/'
-svdatapath = 'edithadata/'
+svdatapath = 'data/'
+# svdatapath = 'edithadata/'
+# svdatapath = 'edithadata_scm/'  # with the scaled momentum eqn
 
 femp, stokesmatsc, rhsd_vfrc, \
     rhsd_stbc, data_prfx, ddir, proutdir \
@@ -50,12 +52,25 @@ for Nts in Ntslist:
         vp = np.load(cdatstr + '.npy')
         v, p = expand_vp_dolfunc(PrP, vp=vp)
 
-        cdatstrref = get_dtstr(t=tcur, **dtstrdctref)
-        vpref = np.load(cdatstrref + '.npy')
-        vref, pref = expand_vp_dolfunc(PrP, vp=vpref)
+        # vpref = np.load(cdatstrref + '.npy')
+        # vref, pref = expand_vp_dolfunc(PrP, vp=vpref)
+        vref = np.load(vdref[tcur] + '.npy')
+        pref = np.load(pdref[tcur] + '.npy')
+        # vpref = np.vstack([vref, pref])
+        vreff, preff = expand_vp_dolfunc(PrP, vc=vref, pc=pref)
+        # vdiff, pdiff = expand_vp_dolfunc(PrP, vc=vp[:Nv]-vref,
+        #                                  pc=vp[Nv:]-pref)
+        # prtrial = snu.get_pfromv(v=vref, **snsedict)
+        # vrtrial, prtrial = expand_vp_dolfunc(PrP, vc=vref, pc=prtrial)
+        # print 'pref', dolfin.norm(preff)
+        # print 'p', dolfin.norm(p)
+        # print 'p(v)', dolfin.norm(ptrial)
+        # print 'p(vref){0}\n'.format(dolfin.norm(prtrial))
 
-        elv.append(dolfin.errornorm(v, vref))
-        elp.append(dolfin.errornorm(p, pref))
+        elv.append(dolfin.errornorm(v, vreff))
+        elp.append(dolfin.errornorm(p, preff))
+        # elv.append(dolfin.norm(vdiff))
+        # elp.append(dolfin.norm(pdiff))
         cres = J*vp[:Nv]-fpbc
         ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
         # routine from time_int_schemes seems buggy for CR or 'g not 0'
@@ -100,5 +115,5 @@ cpu.conv_plot(Ntslist, [errvl], logscale=2,
               markerl=['o'], fignum=1, leglist=['velerror'])
 cpu.conv_plot(Ntslist, [rescl], logscale=2,
               markerl=['o'], fignum=2, leglist=['cres'])
-cpu.conv_plot(Ntslist, [errpl],logscale=2,
+cpu.conv_plot(Ntslist, [errpl], logscale=2,
               markerl=['o'], fignum=3, leglist=['perror'])

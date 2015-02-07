@@ -77,10 +77,11 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
-        inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc, ppin=None,
-                        fv_stbc=fvbc, fp_stbc=fpbc, fvc=0*fvbc,
-                        fpr=0*fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
-                        return_vp=True)
+        inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc,
+                        ppin=None, V=femp['V'], Q=femp['Q'],
+                        fv=fvbc, fp=fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
+                        return_vp=True, diribcs=femp['diribcs'],
+                        invinds=femp['invinds'])
         dimredsys = Bc.shape[1] + Bc.shape[0]
         vp_init = snu.solve_steadystate_nse(**inivdict)[0]
 
@@ -303,7 +304,7 @@ if __name__ == '__main__':
     Re = 60
     tE = .2
     prob = 'cyl'
-    tol = 2**(-14)
+    tol = 2**(-20)
     Ntslist = [32, 64, 128, 256, 512]
 
     # solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=0,  # 2**(-12),
