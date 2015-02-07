@@ -39,7 +39,6 @@ class TimestepParams(object):
         self.ParaviewOutput = False
         self.SaveIniVal = False
         self.SaveTStps = False
-        self.UsePreTStps = False
         self.TolCorB = False
         self.svdatatdsc = True
         self.svdatapath = 'data/'
@@ -311,10 +310,10 @@ if __name__ == '__main__':
     tE = .2
     prob = 'cyl'
     tol = 2**(-18)
-    Ntslist = [64, 128, 256, 512]
+    Ntslist = [128, 256]  # , 512]
 
     solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
-                        MaxIter=700,
+                        MaxIter=550,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     # solve_euler_timedep(method=1, tE=1., LinaTol=2**(-12), tolcor=True,
