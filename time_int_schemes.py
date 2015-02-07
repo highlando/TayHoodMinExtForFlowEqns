@@ -382,7 +382,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     tcur = t0
 
-    MFac = dt  # /dt
+    MFac = dt
     CFac = 1  # /dt
     # PFac = -1  # -1 for symmetry (if CFac==1)
     PFacI = -1./dt
