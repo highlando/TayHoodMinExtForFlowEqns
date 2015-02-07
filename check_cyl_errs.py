@@ -14,10 +14,10 @@ dolfin.set_log_level(60)
 samplerate = 8
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64]  # , 128, 256, 512, 1024, 2048]
+Ntslist = [128, 256]  # , 128, 256, 512, 1024, 2048]
 Ntsref = 2048
-tol = 2**(-18)
-tolcor = True
+tol = 0  # 2**(-18)
+tolcor = False
 method = 1
 
 svdatapathref = 'data/'
@@ -25,8 +25,7 @@ svdatapath = 'data/'
 # svdatapath = 'edithadata/'
 # svdatapath = 'edithadata_scm/'  # with the scaled momentum eqn
 
-femp, stokesmatsc, rhsd_vfrc, \
-    rhsd_stbc, data_prfx, ddir, proutdir \
+femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
 fpbc = rhsd_stbc['fp']
@@ -93,6 +92,7 @@ for Nts in Ntslist:
         # elv.append(dolfin.norm(vdiff))
         # elp.append(dolfin.norm(pdiff))
         cres = J*vp[:Nv]-fpbc
+        # TODO: need MP.-1 here for the right norm
         ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
         # routine from time_int_schemes seems buggy for CR or 'g not 0'
         # ncres = comp_cont_error(v, fpbc, PrP.Q)

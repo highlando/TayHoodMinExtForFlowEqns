@@ -322,7 +322,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             # the errors and residuals
             # ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
             TolCorL.append(TolCor)
-            ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
+            ContiRes.append(0)  # troubles with fenics 1.5
             try:
                 vCur, pCur = PrP.v, PrP.p
                 vCur.t = tcur
