@@ -63,8 +63,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
     if prob == 'cyl':
-        femp, stokesmatsc, rhsd_vfrc, \
-            rhsd_stbc, data_prfx, ddir, proutdir \
+        femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
             = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                                 scheme=scheme)
 
@@ -313,7 +312,7 @@ if __name__ == '__main__':
     Ntslist = [128, 256]  # , 512]
 
     solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
-                        MaxIter=550,
+                        MaxIter=520,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     # solve_euler_timedep(method=1, tE=1., LinaTol=2**(-12), tolcor=True,
