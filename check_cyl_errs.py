@@ -1,5 +1,6 @@
 import dolfin
 import numpy as np
+import scipy.sparse.linalg as spsla
 from time_int_schemes import expand_vp_dolfunc, get_dtstr
 
 import dolfin_navier_scipy.problem_setups as dnsps
@@ -11,10 +12,10 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 8
+samplerate = 2
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64]  # , 128, 256, 512, 1024, 2048]
+Ntslist = [64, 128]  # , 256, 512, 1024, 2048]
 Ntsref = 2048
 tol = 2**(-18)
 tolcor = True
@@ -25,8 +26,7 @@ svdatapath = 'data/'
 # svdatapath = 'edithadata/'
 # svdatapath = 'edithadata_scm/'  # with the scaled momentum eqn
 
-femp, stokesmatsc, rhsd_vfrc, \
-    rhsd_stbc, data_prfx, ddir, proutdir \
+femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
 fpbc = rhsd_stbc['fp']
@@ -56,6 +56,8 @@ snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp,
                 return_dictofpstrs=True, return_dictofvelstrs=True)
 
 vdref, pdref = snu.solve_nse(**snsedict)
+
+Mpfac = spsla.splu(MP)
 
 errvl = []
 errpl = []
@@ -93,7 +95,9 @@ for Nts in Ntslist:
         # elv.append(dolfin.norm(vdiff))
         # elp.append(dolfin.norm(pdiff))
         cres = J*vp[:Nv]-fpbc
-        ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
+        mpires = (Mpfac.solve(cres.flatten())).reshape((cres.size, 1))
+        ncres = np.sqrt(np.dot(cres.T, mpires))[0][0]
+        # ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
         # routine from time_int_schemes seems buggy for CR or 'g not 0'
         # ncres = comp_cont_error(v, fpbc, PrP.Q)
         elc.append(ncres)
