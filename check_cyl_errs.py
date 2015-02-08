@@ -12,10 +12,10 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 2
+samplerate = 8
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64, 128]  # , 256, 512, 1024, 2048]
+Ntslist = [64]  # , 128, 256, 512, 1024, 2048]
 Ntsref = 2048
 tol = 2**(-18)
 tolcor = True
@@ -26,7 +26,8 @@ svdatapath = 'data/'
 # svdatapath = 'edithadata/'
 # svdatapath = 'edithadata_scm/'  # with the scaled momentum eqn
 
-femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
+femp, stokesmatsc, rhsd_vfrc, \
+    rhsd_stbc, data_prfx, ddir, proutdir \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
 fpbc = rhsd_stbc['fp']
@@ -37,10 +38,26 @@ dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
 
 J, MP = stokesmatsc['J'], stokesmatsc['MP']
 Nv = J.shape[1]
-
-method = 2
-
 Mpfac = spsla.splu(MP)
+
+# get the ref trajectories
+trange = np.linspace(0, tE, Ntsref+1)
+M, A = stokesmatsc['M'], stokesmatsc['A']
+JT, J = stokesmatsc['JT'], stokesmatsc['J']
+invinds = femp['invinds']
+fv, fp = rhsd_stbc['fv'], rhsd_stbc['fp']
+ppin = None
+
+snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp,
+                V=femp['V'], Q=femp['Q'],
+                invinds=invinds, diribcs=femp['diribcs'],
+                start_ssstokes=True, trange=trange,
+                clearprvdata=False, paraviewoutput=True,
+                data_prfx='refveldata/',
+                vfileprfx='refveldata/v', pfileprfx='refveldata/p',
+                return_dictofpstrs=True, return_dictofvelstrs=True)
+
+vdref, pdref = snu.solve_nse(**snsedict)
 
 errvl = []
 errpl = []
