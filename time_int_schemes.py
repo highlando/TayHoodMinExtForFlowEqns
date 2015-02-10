@@ -388,6 +388,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     PFacI = -1./dt
 
     dtstrdct = dict(prefix=TsP.svdatapath, method=2, N=PrP.N,
+                    tolcor=TsP.TolCorB,
                     nu=PrP.nu, Nts=TsP.Nts, tol=TsP.linatol, te=TsP.tE)
     cdatstr = get_dtstr(t=0, **dtstrdct)
     try:
@@ -420,8 +421,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     # M matrix for the minres routine
     # M accounts for the FEM discretization
 
-    Mcfac = spsla.factorized(Mc)
-    MPcfac = spsla.factorized(MPc)
+    Mcfac = spsla.splu(Mc)
+    MPcfac = spsla.splu(MPc)
 
     def _MInv(vp):
         # v, p = vp[:Nv, ], vp[Nv:, ]
@@ -430,8 +431,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         # Mv = (krypy.linsys.Cg(lsv, tol=1e-14)).xk
         # Mp = (krypy.linsys.Cg(lsp, tol=1e-14)).xk
         v, p = vp[:Nv, ], vp[Nv:, ]
-        Mv = np.atleast_2d(Mcfac(v.flatten())).T
-        Mp = np.atleast_2d(MPcfac(p.flatten())).T
+        Mv = np.atleast_2d(Mcfac.solve(v.flatten())).T
+        Mp = np.atleast_2d(MPcfac.solve(p.flatten())).T
         return np.vstack([Mv, Mp])
 
     MInv = spsla.LinearOperator(
@@ -447,7 +448,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         """
         v1, v2 = vp1[:Nv, ], vp2[:Nv, ]
         p1, p2 = vp1[Nv:, ], vp2[Nv:, ]
-        return mass_fem_ip(v1, v2, Mc) + mass_fem_ip(p1, p2, MPc)
+        return mass_fem_ip(v1, v2, Mcfac) + mass_fem_ip(p1, p2, MPcfac)
 
     inikryupd = TsP.inikryupd
     iniiterfac = TsP.iniiterfac  # the first krylov step needs more maxiter

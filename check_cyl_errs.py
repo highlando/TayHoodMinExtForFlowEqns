@@ -1,5 +1,6 @@
 import dolfin
 import numpy as np
+import scipy.sparse.linalg as spsla
 from time_int_schemes import expand_vp_dolfunc, get_dtstr
 
 import dolfin_navier_scipy.problem_setups as dnsps
@@ -16,8 +17,8 @@ samplerate = 8
 N, Re, scheme, tE = 3, 60, 'CR', .2
 Ntslist = [128, 256]  # , 128, 256, 512, 1024, 2048]
 Ntsref = 2048
-tol = 0  # 2**(-18)
-tolcor = False
+tol = 2**(-18)
+tolcor = True
 method = 1
 
 svdatapathref = 'data/'
@@ -36,8 +37,26 @@ dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
 
 J, MP = stokesmatsc['J'], stokesmatsc['MP']
 Nv = J.shape[1]
+Mpfac = spsla.splu(MP)
 
-method = 2
+# get the ref trajectories
+trange = np.linspace(0, tE, Ntsref+1)
+M, A = stokesmatsc['M'], stokesmatsc['A']
+JT, J = stokesmatsc['JT'], stokesmatsc['J']
+invinds = femp['invinds']
+fv, fp = rhsd_stbc['fv'], rhsd_stbc['fp']
+ppin = None
+
+snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp,
+                V=femp['V'], Q=femp['Q'],
+                invinds=invinds, diribcs=femp['diribcs'],
+                start_ssstokes=True, trange=trange,
+                clearprvdata=False, paraviewoutput=True,
+                data_prfx='refveldata/',
+                vfileprfx='refveldata/v', pfileprfx='refveldata/p',
+                return_dictofpstrs=True, return_dictofvelstrs=True)
+
+vdref, pdref = snu.solve_nse(**snsedict)
 
 errvl = []
 errpl = []
@@ -75,8 +94,9 @@ for Nts in Ntslist:
         # elv.append(dolfin.norm(vdiff))
         # elp.append(dolfin.norm(pdiff))
         cres = J*vp[:Nv]-fpbc
-        # TODO: need MP.-1 here for the right norm
-        ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
+        mpires = (Mpfac.solve(cres.flatten())).reshape((cres.size, 1))
+        ncres = np.sqrt(np.dot(cres.T, mpires))[0][0]
+        # ncres = np.sqrt(np.dot(cres.T, MP*cres))[0][0]
         # routine from time_int_schemes seems buggy for CR or 'g not 0'
         # ncres = comp_cont_error(v, fpbc, PrP.Q)
         elc.append(ncres)
@@ -114,6 +134,14 @@ for Nts in Ntslist:
 
 print errvl
 print errpl
+print rescl
+
+topgfplot = True
+if topgfplot:
+    ltpl = [errvl, errpl, rescl]
+    for ltp in ltpl:
+        for (i, Nts) in enumerate(Ntslist):
+            print '({0}, {1})'.format(1./Nts, ltp[i])
 
 cpu.conv_plot(Ntslist, [errvl], logscale=2,
               markerl=['o'], fignum=1, leglist=['velerror'])
