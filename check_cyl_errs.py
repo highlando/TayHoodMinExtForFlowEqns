@@ -15,7 +15,7 @@ dolfin.set_log_level(60)
 samplerate = 8
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64]  # , 128, 256, 512, 1024, 2048]
+Ntslist = [64, 128, 256]  # , 512, 1024, 2048]
 Ntsref = 2048
 tol = 2**(-18)
 tolcor = True
@@ -26,8 +26,7 @@ svdatapath = 'data/'
 # svdatapath = 'edithadata/'
 # svdatapath = 'edithadata_scm/'  # with the scaled momentum eqn
 
-femp, stokesmatsc, rhsd_vfrc, \
-    rhsd_stbc, data_prfx, ddir, proutdir \
+femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
     = dnsps.get_sysmats(problem='cylinderwake', N=N, Re=Re,
                         scheme=scheme)
 fpbc = rhsd_stbc['fp']
@@ -135,6 +134,14 @@ for Nts in Ntslist:
 
 print errvl
 print errpl
+print rescl
+
+topgfplot = True
+if topgfplot:
+    ltpl = [errvl, errpl, rescl]
+    for ltp in ltpl:
+        for (i, Nts) in enumerate(Ntslist):
+            print '({0}, {1})'.format(1./Nts, ltp[i])
 
 cpu.conv_plot(Ntslist, [errvl], logscale=2,
               markerl=['o'], fignum=1, leglist=['velerror'])
