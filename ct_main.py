@@ -309,7 +309,7 @@ if __name__ == '__main__':
     tE = .2
     prob = 'cyl'
     tol = 2**(-18)
-    Ntslist = [128, 256]  # , 512]
+    Ntslist = [512]
 
     solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
                         MaxIter=660,
