@@ -37,24 +37,7 @@ dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
 J, MP = stokesmatsc['J'], stokesmatsc['MP']
 Nv = J.shape[1]
 
-# get the ref trajectories
-trange = np.linspace(0, tE, Ntsref+1)
-M, A = stokesmatsc['M'], stokesmatsc['A']
-JT, J = stokesmatsc['JT'], stokesmatsc['J']
-invinds = femp['invinds']
-fv, fp = rhsd_stbc['fv'], rhsd_stbc['fp']
-ppin = None
-
-snsedict = dict(A=A, J=J, JT=JT, M=M, ppin=ppin, fv=fv, fp=fp,
-                V=femp['V'], Q=femp['Q'],
-                invinds=invinds, diribcs=femp['diribcs'],
-                start_ssstokes=True, trange=trange,
-                clearprvdata=False, paraviewoutput=True,
-                data_prfx='refveldata/',
-                vfileprfx='refveldata/v', pfileprfx='refveldata/p',
-                return_dictofpstrs=True, return_dictofvelstrs=True)
-
-vdref, pdref = snu.solve_nse(**snsedict)
+method = 2
 
 errvl = []
 errpl = []
