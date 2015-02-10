@@ -421,8 +421,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     # M matrix for the minres routine
     # M accounts for the FEM discretization
 
-    Mcfac = spsla.factorized(Mc)
-    MPcfac = spsla.factorized(MPc)
+    Mcfac = spsla.splu(Mc)
+    MPcfac = spsla.splu(MPc)
 
     def _MInv(vp):
         # v, p = vp[:Nv, ], vp[Nv:, ]
@@ -431,8 +431,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         # Mv = (krypy.linsys.Cg(lsv, tol=1e-14)).xk
         # Mp = (krypy.linsys.Cg(lsp, tol=1e-14)).xk
         v, p = vp[:Nv, ], vp[Nv:, ]
-        Mv = np.atleast_2d(Mcfac(v.flatten())).T
-        Mp = np.atleast_2d(MPcfac(p.flatten())).T
+        Mv = np.atleast_2d(Mcfac.solve(v.flatten())).T
+        Mp = np.atleast_2d(MPcfac.solve(p.flatten())).T
         return np.vstack([Mv, Mp])
 
     MInv = spsla.LinearOperator(
