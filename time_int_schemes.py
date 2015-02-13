@@ -411,6 +411,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         IterAfac = spsla.factorized(IterA)
 
     vp_old = vp_init
+    vp_old = np.vstack([vp_init[:Nv], 1./PFacI*vp_init[Nv:]])
     vp_oldold = vp_old
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
 
@@ -459,6 +460,7 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
             try:
                 vp_next = np.load(cdatstr + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
+                vp_next = np.vstack([vp_next[:Nv], 1./PFacI*vp_next[Nv:]])
                 vp_oldold = vp_old
                 vp_old = vp_next
                 if tcur == dt+dt:

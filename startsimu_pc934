@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source setnthrd.sh
+source /afs/mpi-magdeburg.mpg.de/data/csc/software/64bit/fenics-1.5.0-ubuntu1204/share/fenics/fenics.conf
+python ct_main.py
