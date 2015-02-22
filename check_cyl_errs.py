@@ -12,14 +12,14 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 8
+samplerate = 1
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [128, 256]  # , 128, 256, 512, 1024, 2048]
+Ntslist = [2**x for x in range(6, 11)]
 Ntsref = 2048
 tol = 2**(-18)
 tolcor = True
-method = 1
+method = 2
 
 svdatapathref = 'data/'
 svdatapath = 'data/'

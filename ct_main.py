@@ -301,7 +301,7 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     import dolfin_navier_scipy.data_output_utils as dou
-    dou.logtofile(logstr='logfile_m1_cylinder_t12')
+    dou.logtofile(logstr='logfile_m2_cylinder_div3')
 
     scheme = 'CR'
     N = 3
@@ -309,7 +309,7 @@ if __name__ == '__main__':
     tE = .2
     prob = 'cyl'
     tol = 2**(-18)
-    Ntslist = [512]
+    Ntslist = [1024]
 
     solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
                         MaxIter=800,
