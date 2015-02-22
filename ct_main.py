@@ -312,7 +312,7 @@ if __name__ == '__main__':
     Ntslist = [1024]
 
     solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
-                        MaxIter=800,
+                        MaxIter=1000,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     # solve_euler_timedep(method=1, tE=1., LinaTol=2**(-12), tolcor=True,
