@@ -12,10 +12,11 @@ import matlibplots.conv_plot_utils as cpu
 
 dolfin.set_log_level(60)
 
-samplerate = 8
+samplerate = 1
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [64, 128, 256]  # , 512, 1024, 2048]
+Ntslist = [64, 128, 256]  # , 512, 1024]
+# Ntslist = [1024]
 Ntsref = 2048
 tol = 2**(-18)
 tolcor = True
@@ -32,8 +33,6 @@ femp, stokesmatsc, rhsd_vfrc, rhsd_stbc \
 fpbc = rhsd_stbc['fp']
 
 PrP = FempToProbParams(N, femp=femp, pdof=None)
-dtstrdctref = dict(prefix=svdatapathref, method=2, N=PrP.N,
-                   nu=PrP.nu, Nts=Ntsref, tol=0, te=tE)
 
 J, MP = stokesmatsc['J'], stokesmatsc['MP']
 Nv = J.shape[1]

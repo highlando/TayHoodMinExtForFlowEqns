@@ -118,22 +118,24 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
         pdoflist = None
     only_check_cond = False
     if only_check_cond:
+        print 'Scheme is ', scheme
+        import matplotlib.pylab as pl
         if PrP.Pdof is None:
             B2 = BSme[:, :][:, -B2Inds.size:]
             B2res = fullB[pdoflist.flatten(), :][:, B2Inds.flatten()]
+            print 'condition number is ', npla.cond(B2res.todense())
             # B2res = BSme[pdoflist.flatten(), :][:, -B2Inds.size:]
+            pl.figure(2)
+            pl.spy(B2res)  # [:100, :][:, :100])
         elif PrP.Pdof == 0:
             B2 = BSme[1:, :][:, -B2Inds.size:]
+            print 'condition number is ', npla.cond(B2.todense())
         else:
             raise NotImplementedError()
-        print 'condition number is ', npla.cond(B2res.todense())
         print 'N is ', N
         print 'B2 shape is ', B2.shape
-        import matplotlib.pylab as pl
         pl.figure(1)
         pl.spy(B2)
-        pl.figure(2)
-        pl.spy(B2res)  # [:100, :][:, :100])
         pl.show(block=False)
         import sys
         sys.exit('done')

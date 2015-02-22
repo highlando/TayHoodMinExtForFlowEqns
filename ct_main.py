@@ -166,7 +166,6 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             get_smamin_rearrangement(N, PrP, M=Mc, A=Ac, B=Bc,
                                      crinicell=cricell, addnedgeat=cricell,
                                      scheme=scheme, fullB=Ba)
-
         FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
         FpbcSme = fpbc
 
@@ -301,7 +300,7 @@ class UpFiles(object):
 
 if __name__ == '__main__':
     import dolfin_navier_scipy.data_output_utils as dou
-    dou.logtofile(logstr='logfile_m2_scmm')
+    dou.logtofile(logstr='logfile_m2_1024')
 
     scheme = 'CR'
     N = 3
@@ -309,11 +308,14 @@ if __name__ == '__main__':
     tE = .2
     prob = 'cyl'
     tol = 2**(-18)
-    Ntslist = [512]
+    Ntslist = [1024]
 
     solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
                         MaxIter=800,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+
+    # solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
+    #                     N=40, NtsList=Ntslist, scheme='TH')
 
     # solve_euler_timedep(method=1, tE=1., LinaTol=2**(-12), tolcor=True,
     #                     MaxIter=400, N=40, NtsList=Ntslist)
