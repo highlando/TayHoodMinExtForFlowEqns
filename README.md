@@ -5,9 +5,18 @@ For the theory see our [Preprint](http://www3.math.tu-berlin.de/preprints/files/
 
 To check invertibility of the local FEM divergence matrices of regular n-gons use the script `detOfRegTayHooCluster.py`.
 
-The simulations are started from the file `ct_main.py`. There all parameters are set. The default values of internal parameters of the first commit are the ones used in the simulations presented in the paper.
+The simulations are started from through file 
+```
+python ct_main.py
+```
+There all parameters are set. The default values of internal parameters of the first commit are the ones used in the simulations presented in the preprint.
 
-To get a hand on, start with `python comp_timeschemes_main.py`. You will need a [Dolfin/FeNiCs](http://fenicsproject.org/) installation. You may want to install [Krypy](https://github.com/andrenarchy/krypy), but you can solve the linear systems with a different solver.
+To compute and plot the errors for the cylinder wake setup use
+```
+python check_cyl_errs
+```
+
+You will need a [Dolfin/FeNiCs](http://fenicsproject.org/) installation. You may want to install [Krypy](https://github.com/andrenarchy/krypy), but you can solve the linear systems with a different solver.
 
 Other features:
 * Paraview integration for visualization
