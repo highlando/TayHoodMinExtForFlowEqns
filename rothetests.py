@@ -7,7 +7,7 @@ import dolfin_navier_scipy.problem_setups as dnsps
 import dolfin_navier_scipy.data_output_utils as dou
 import sadptprj_riclyap_adi.lin_alg_utils as lau
 
-from time_int_schemes import expand_vp_dolfunc, get_dtstr
+from time_int_schemes import get_dtstr
 
 dolfin.parameters.linear_algebra_backend = 'uBLAS'
 
@@ -24,86 +24,81 @@ Idea of code
    - comp `and collect norm(vcur - vref)` and `norm(pcur - pref)`
    - plot `vcur`, `pcur` interpolated in the refspacs
 
+Issues:
+ - save the `v` variables with boundary conditions, because
+   - otherwise `diribcs` have to be saved with the data as well
+   - easier for visualization and error estimation
+ - save `v` and `p` separately
+   - to append the bcs, `v` is separated anyways
+   - that is coherent with `solve_nse`
 '''
 
 Nref = 3
 Nplt = 2
 
-nswtchl = [3, 2]
-
 proutdir = 'results/'
 ddir = 'data/'
 
-nswtchstr = 'Nswitches' + ''.join(str(e) for e in nswtchl)
 
-
-def gettheref(problem='drivencavity', N=None, nu=None, Re=None, Nts=None,
-              paraout=False, t0=0.0, tE=0.2, scheme=None, dtstrdct={}):
-
-    femp, stokesmatsc, rhsd = dnsps.get_sysmats(problem=problem, N=N,
-                                                Re=Re, nu=nu, scheme=scheme,
-                                                mergerhs=True)
+def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=256,
+              paraout=False, t0=0.0, tE=0.2, scheme=None, dtstrdct={},
+              debug=False):
     trange = np.linspace(t0, tE, Nts+1)
-    M, A, J, = stokesmatsc['M'], stokesmatsc['A'], stokesmatsc['J']
-    V, Q = femp['V'], femp['Q']
-    invindsref, diribcsref = femp['invinds'],  femp['diribcs']
-    fv, fp = rhsd['fv'], rhsd['fp']
+    refmeshdict = get_curmeshdict(problem=problem, N=N, nu=nu, Re=Re,
+                                  scheme=scheme)
 
     refvdict, refpdict = snu.\
-        solve_nse(A=A, M=M, J=J, JT=None, fv=fv, fp=fp, trange=trange,
-                  V=V, Q=Q, invinds=invindsref, diribcs=diribcsref,
-                  N=N, nu=nu,
-                  clearprvdata=False, data_prfx=ddir,
+        solve_nse(trange=trange, clearprvdata=debug, data_prfx=ddir,
                   vfileprfx=proutdir, pfileprfx=proutdir,
+                  output_includes_bcs=True,
                   return_dictofvelstrs=True, return_dictofpstrs=True,
-                  start_ssstokes=True)
+                  start_ssstokes=True, **refmeshdict)
 
     return refvdict, refpdict
 
 
-def testit(problem='drivencavity', N=None, nu=None, Re=None, Nts=256,
-           paraout=False, t0=0.0, tE=0.2, scheme=None, dtstrdct={}):
+def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
+               Nts=256, t0=0.0, tE=0.2, Nlist=[2],
+               viniv=None, piniv=None, Nini=None,
+               scheme=None, dtstrdct={}):
 
-    femp, stokesmatsc, rhsd = dnsps.get_sysmats(problem=problem, N=N,
-                                                Re=Re, nu=nu, scheme=scheme,
-                                                mergerhs=True)
     trange = np.linspace(t0, tE, Nts+1)
-
-    # compute the reference solution
-
-    viniv = dou.load_npa(refvdict[0])
-    piniv = dou.load_npa(refpdict[0])
-
-    vini, pini = dts.expand_vp_dolfunc(V=Vref, Q=Qref, vc=viniv,
-                                       pc=piniv, invinds=invindsref,
-                                       diribcs=diribcsref, ppin=-1)
+    # set up the list of the mesh parameters at every time step
+    swl = Nts/len(Nlist)
+    Nll = [Nlist[0]]*Nts
+    for N in Nlist[1:]:
+        Nll[N*swl+1:] = N
+    Nll[0] = Nini
 
     t = trange[0]
-    # if paraout:
-    #     vfile << vini, t
-    #     pfile << pini, t
     dtstrdct.update(dict(t=0, N=Nref))
     cdatstr = get_dtstr(**dtstrdct)
-    dou.save_npa(np.vstack([viniv, piniv]), cdatstr)
-    cursoldict = {0: cdatstr}
+    dou.save_npa(viniv, cdatstr + '__vel')
+    curvdict = {0: cdatstr + '__vel'}
+    dou.save_npa(piniv, cdatstr + '__p')
+    curpdict = {0: cdatstr + '__p'}
 
     vprev = viniv
-    coefalu = None
-    curmeshdict = dict(V=Vref, Q=Qref, invinds=invindsref, diribcs=diribcsref,
-                       fv=fv, fp=fp, A=A, M=M, J=J, coefalu=None)
+    curmeshdict = get_curmeshdict(problem=problem, N=Nll[0], nu=nu, Re=Re,
+                                  scheme=scheme)
+    curmeshdict.update(coefalu=None)
     for tk, t in enumerate(trange[1:]):
         cts = t - trange[tk]
+        Nvc = curmeshdict['A'].shape[0]
         vpcur, coefalu = \
             roth_upd_ind2(vvec=vprev, cts=cts,
                           Vc=curmeshdict['V'], diribcsc=curmeshdict['diribcs'],
                           nmd=curmeshdict, returnalu=True)
         dtstrdct.update(dict(t=t, N=N))
-        dou.save_npa(vpcur, get_dtstr(**dtstrdct))
+        cdatstr = get_dtstr(**dtstrdct)
+        vcur = dts.append_bcs_vec(vpcur[:Nvc], **curmeshdict)
+        dou.save_npa(vcur, cdatstr+'__vel')
+        curvdict.update({t: cdatstr})
+        dou.save_npa(vpcur[Nvc:, :], cdatstr+'__p')
+        curpdict.update({t: cdatstr})
         curmeshdict.update(dict(coefalu=coefalu))
-        cursoldict.update({t: cdatstr})
 
-    return cursoldict
-
+    return curvdict, curpdict
 
 
 def roth_upd_ind2(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
@@ -145,15 +140,33 @@ def roth_upd_ind2(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
         return vp_new
 
 
-def _vctovn(vvec=None, Vc=None, Vn=None, diribcs=None):
+def _vctovn(vvec=None, vfunc=None, Vc=None, Vn=None, diribcs=None):
     return vvec
+
+
+def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None):
+
+    femp, stokesmatsc, rhsd = dnsps.get_sysmats(problem=problem, N=N,
+                                                Re=Re, nu=nu, scheme=scheme,
+                                                mergerhs=True)
+    M, A, J = stokesmatsc['M'], stokesmatsc['A'], stokesmatsc['J']
+    V, Q = femp['V'], femp['Q']
+    invinds, diribcs = femp['invinds'],  femp['diribcs']
+    fv, fp = rhsd['fv'], rhsd['fp']
+
+    return dict(M=M, A=A, J=J, V=V, Q=Q, invinds=invinds, diribcs=diribcs,
+                fv=fv, fp=fp, N=N, Re=femp['Re'])
+
 
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
     t0, tE, Nts = 0.0, 0.2, 128
-    dtstrdct = dict(prefix=ddir+problem+scheme+'_Rothe_velpres_'+nswtchstr,
-                    method=2, N=None, nu=nu, Nts=Nts, t0=t0, te=tE)
+    nswtchl = [3, 2]
 
-    testit(problem=problem, N=3, Re=120, Nts=128, tE=.2,
-           scheme='CR', dtstrdct=dtstrdct)
+    nswtchstr = 'Nswitches' + ''.join(str(e) for e in nswtchl)
+    dtstrdct = dict(prefix=ddir+problem+scheme+nswtchstr,
+                    method=2, N=None, Nts=Nts, t0=t0, te=tE)
+
+    vdict, pdict = rothe_ind2(problem=problem, Re=120, Nts=128, tE=.2,
+                              Nini=3, scheme='CR', dtstrdct=dtstrdct)
