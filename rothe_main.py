@@ -98,8 +98,8 @@ def compvperr(problem=None, scheme=None, trange=None,
     for tk, t in enumerate(trange):
         vref = dou.load_npa(rvd['{0}'.format(t)])
         pref = dou.load_npa(rpd['{0}'.format(t)])
-        vreff, preff = dts.\
-            expand_vp_dolfunc(vc=vref, V=rmd['V'], pc=pref, Q=rmd['Q'])
+        # vreff, preff = dts.\
+        #     expand_vp_dolfunc(vc=vref, V=rmd['V'], pc=pref, Q=rmd['Q'])
 
         cmd = rtu.get_curmeshdict(problem=problem, N=Nll[tk],
                                   scheme=scheme, onlymesh=True)
@@ -110,13 +110,33 @@ def compvperr(problem=None, scheme=None, trange=None,
             vcur = dou.load_npa(cvd['{0}'.format(t)])
             pcur = dou.load_npa(cpd['{0}'.format(t)])
 
-        raise Warning('TODO: debug')
         vcurf, pcurf = dts.\
-            expand_vp_dolfunc(vc=vcur, V=cmd['V'], pc=pref, Q=rmd['Q'])
-        # vcurf, pcurf = dts.\
-        #     expand_vp_dolfunc(vc=vref, V=cmd['V'], pc=pcur, Q=cmd['Q'])
-        verrl.append(dolfin.errornorm(vreff, vcurf))
-        perrl.append(dolfin.errornorm(preff, pcurf))
+            expand_vp_dolfunc(vc=vcur, V=cmd['V'], pc=pcur, Q=cmd['Q'])
+
+        # # # This would be the FEniCS way to compute the diff
+        #
+        # verrl.append(dolfin.errornorm(vreff, vcurf, degree_rise=2))
+        #
+        # # # however this gave strange results (due to rounding errs?)
+
+        # # # instead we interpolate and substract manually
+        Vref = rmd['V']
+        vcfinvref = dolfin.interpolate(vcurf, Vref)
+        vcinvrefvec = vcfinvref.vector().array()
+        difffunc = dolfin.Function(Vref)
+        difffunc.vector().set_local(vref.flatten()-vcinvrefvec)
+
+        Qref = rmd['Q']
+        pcfinvref = dolfin.interpolate(pcurf, Qref)
+        pcinvrefvec = pcfinvref.vector().array()
+        difffuncp = dolfin.Function(Qref)
+        difffuncp.vector().set_local(pref.flatten()-pcinvrefvec)
+
+        verrl.append(dolfin.norm(difffunc))
+        perrl.append(dolfin.norm(difffuncp))
+        # perrl.append(dolfin.errornorm(preff, pcurf))
+        # print perrl, verrl
+        # raise Warning('TODO: debug')
 
     return dict(verrl=verrl, perrl=perrl, trange=trange, Nll=Nll, Nref=Nref)
 
