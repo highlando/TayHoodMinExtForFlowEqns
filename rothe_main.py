@@ -9,6 +9,23 @@ from time_int_schemes import get_dtstr
 
 dolfin.parameters.linear_algebra_backend = 'uBLAS'
 
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("rothemain")
+# disable the fenics loggers
+logging.getLogger('UFL').setLevel(logging.WARNING)
+logging.getLogger('FFC').setLevel(logging.WARNING)
+
+fh = logging.FileHandler('log.rothemain')
+fh.setLevel(logging.INFO)
+
+formatter = \
+    logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+# logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+fh.setFormatter(formatter)
+logger.addHandler(fh)
+
 '''
 Idea of code
 
@@ -110,6 +127,8 @@ def compvperr(problem=None, scheme=None, trange=None,
             vcur = dou.load_npa(cvd['{0}'.format(t)])
             pcur = dou.load_npa(cpd['{0}'.format(t)])
 
+        logger = logging.getLogger("rothemain.compvperr")
+        logger.debug("len v={0}, dim V={1}".format(vcur.size, cmd['V'].dim()))
         vcurf, pcurf = dts.\
             expand_vp_dolfunc(vc=vcur, V=cmd['V'], pc=pcur, Q=cmd['Q'])
 

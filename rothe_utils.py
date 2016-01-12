@@ -1,12 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import dolfin
+
 import dolfin_navier_scipy.dolfin_to_sparrays as dts
 import dolfin_navier_scipy.problem_setups as dnsps
 import dolfin_navier_scipy.data_output_utils as dou
 import sadptprj_riclyap_adi.lin_alg_utils as lau
 
 from time_int_schemes import get_dtstr
+
+import logging
+logger = logging.getLogger("rothemain.rothe_utils")
 
 
 def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
@@ -22,27 +27,38 @@ def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
     dou.save_npa(viniv, cdatstr + '__vel')
     curvdict = {t: cdatstr + '__vel'}
     dou.save_npa(piniv, cdatstr + '__p')
+    logger.info('v/p saved to ' + cdatstr + '__v/__p')
     curpdict = {t: cdatstr + '__p'}
 
-    vprev = viniv
+    vcurvec = viniv
     curmeshdict = get_curmeshdict(problem=problem, N=Nll[0], nu=nu, Re=Re,
                                   scheme=scheme)
     curmeshdict.update(coefalu=None)
+    Vc = curmeshdict['V']
     for tk, t in enumerate(trange[1:]):
         cts = t - trange[tk]
+        if not Nll[tk+1] == Nll[tk]:
+            curmeshdict = get_curmeshdict(problem=problem, N=Nll[tk+1], nu=nu,
+                                          Re=Re, scheme=scheme)
+            logger.info('changed the mesh from N={0} to N={1} at t={2}'.
+                        format(Nll[tk], Nll[tk+1], t))
+            # change in the mesh
         Nvc = curmeshdict['A'].shape[0]
+        logger.debug("t={0}, dim V={1}".format(t, curmeshdict['V'].dim()))
         vpcur, coefalu = \
-            roth_upd_ind2(vvec=vprev, cts=cts,
-                          Vc=curmeshdict['V'], diribcsc=curmeshdict['diribcs'],
+            roth_upd_ind2(vvec=vcurvec, cts=cts,
+                          Vc=Vc, diribcsc=curmeshdict['diribcs'],
                           nmd=curmeshdict, returnalu=True)
         dtstrdct.update(dict(t=t, N=Nll[tk+1]))
         cdatstr = get_dtstr(**dtstrdct)
+        # add the boundary values to the velocity
         vcur = dts.append_bcs_vec(vpcur[:Nvc], **curmeshdict)
         dou.save_npa(vcur, cdatstr+'__vel')
         curvdict.update({t: cdatstr+'__vel'})
         dou.save_npa(vpcur[Nvc:, :], cdatstr+'__p')
         curpdict.update({t: cdatstr+'__p'})
         curmeshdict.update(dict(coefalu=coefalu))
+        Vc = curmeshdict['V']
 
     return curvdict, curpdict
 
@@ -54,15 +70,22 @@ def roth_upd_ind2(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
                   returnalu=False, **kwargs):
     """ advancing `v, p` for one time using Rothe's method
 
+    Parameters
+    ---
+    nmd : dict
+        containing the data (mesh, matrices, rhs) from the next time step
+    vvec : (n,1)-array
+        current solution
+    Vc : dolfin.mesh
+        current mesh
+
     Notes
     -----
     Time dependent Dirichlet conditions are not supported by now
     """
-
+    logger.debug("dimension of vcur={0}".format(vvec.size))
     if not nmd['V'] == Vc:
-        raise Warning('TODO: debug')
-        vvec = _vctovn(vvec=vvec, Vc=Vc, diribcs=diribcsc, nmd=nmd)
-    print 'hello'
+        vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
 
     mvvec = nmd['M']*vvec[nmd['invinds'], :]
     convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
@@ -88,8 +111,18 @@ def roth_upd_ind2(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
         return vp_new
 
 
-def _vctovn(vvec=None, vfunc=None, Vc=None, Vn=None, diribcs=None):
-    return vvec
+def _vctovn(vvec=None, vfun=None, Vc=None, Vn=None, diribcs=None):
+
+    if vfun is None:
+        vcfun = dolfin.Function(Vc)
+        vcfun.vector().set_local(vvec)
+    else:
+        vcfun = vfun
+    dolfin.parameters["allow_extrapolation"] = True
+    vnfun = dolfin.interpolate(vcfun, Vn)
+    vnvec = vnfun.vector().array().reshape((Vn.dim(), 1))
+
+    return vnvec
 
 
 def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
