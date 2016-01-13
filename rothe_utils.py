@@ -40,6 +40,7 @@ def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
         if not Nll[tk+1] == Nll[tk]:
             curmeshdict = get_curmeshdict(problem=problem, N=Nll[tk+1], nu=nu,
                                           Re=Re, scheme=scheme)
+            curmeshdict.update(coefalu=None)
             logger.info('changed the mesh from N={0} to N={1} at t={2}'.
                         format(Nll[tk], Nll[tk+1], t))
             # change in the mesh
@@ -52,8 +53,8 @@ def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
         dtstrdct.update(dict(t=t, N=Nll[tk+1]))
         cdatstr = get_dtstr(**dtstrdct)
         # add the boundary values to the velocity
-        vcur = dts.append_bcs_vec(vpcur[:Nvc], **curmeshdict)
-        dou.save_npa(vcur, cdatstr+'__vel')
+        vcurvec = dts.append_bcs_vec(vpcur[:Nvc], **curmeshdict)
+        dou.save_npa(vcurvec, cdatstr+'__vel')
         curvdict.update({t: cdatstr+'__vel'})
         dou.save_npa(vpcur[Nvc:, :], cdatstr+'__p')
         curpdict.update({t: cdatstr+'__p'})
@@ -83,10 +84,11 @@ def roth_upd_ind2(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
     -----
     Time dependent Dirichlet conditions are not supported by now
     """
-    logger.debug("dimension of vcur={0}".format(vvec.size))
+    logger.debug("length of vvec={0}".format(vvec.size))
     if not nmd['V'] == Vc:
         vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
-
+        logger.debug('len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
+                     format(vvec.size, nmd['V'].dim(), Vc.dim()))
     mvvec = nmd['M']*vvec[nmd['invinds'], :]
     convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
                               diribcs=nmd['diribcs'],
@@ -111,6 +113,27 @@ def roth_upd_ind2(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
         return vp_new
 
 
+class ExtFunZero(dolfin.Expression):
+    """a dolfin.expression that equals a function on its mesh and =0 elsewhere
+
+
+    """
+    def __init__(self, vfun=None):
+        self.vfun = vfun
+
+    def eval(self, value, x):
+        try:
+            self.vfun.eval(value, x)
+        except RuntimeError:
+            value[0] = 0.0
+            value[1] = 0.0
+            logger.debug("extfunzero: got x={0}, gave value={1}".
+                         format(x, value))
+
+    def value_shape(self):
+        return (2,)
+
+
 def _vctovn(vvec=None, vfun=None, Vc=None, Vn=None, diribcs=None):
 
     if vfun is None:
@@ -118,8 +141,8 @@ def _vctovn(vvec=None, vfun=None, Vc=None, Vn=None, diribcs=None):
         vcfun.vector().set_local(vvec)
     else:
         vcfun = vfun
-    dolfin.parameters["allow_extrapolation"] = True
-    vnfun = dolfin.interpolate(vcfun, Vn)
+    extvcfun = ExtFunZero(vfun=vcfun)
+    vnfun = dolfin.interpolate(extvcfun, Vn)
     vnvec = vnfun.vector().array().reshape((Vn.dim(), 1))
 
     return vnvec

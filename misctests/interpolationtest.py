@@ -42,7 +42,7 @@ fempref, stokesmatsc, rhsd = dnsps.get_sysmats(problem=problemname, N=Nref,
 Vref = fempref['V']
 
 
-class ExtVwbc(dolfin.Expression):
+class ExtFunZero(dolfin.Expression):
     def __init__(self, vfun=None):
         self.vfun = vfun
 
@@ -57,7 +57,7 @@ class ExtVwbc(dolfin.Expression):
     def value_shape(self):
         return (2,)
 
-extv = ExtVwbc(vfun=vwbcf)
+extv = ExtFunZero(vfun=vwbcf)
 vwbcfinterp = dolfin.interpolate(extv, Vref)
 dolfin.plot(vwbcfinterp, interactive=True)  # , mode="glyphs")
 dolfin.plot(vwbcf, interactive=True)  # , mode="glyphs")

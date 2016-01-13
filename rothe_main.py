@@ -180,12 +180,15 @@ def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
-    t0, tE, Nts = 0.0, 0.02, 16
+    Ntslist = [512, 1024]
+    t0, tE = 0.0, 0.02
     nswtchshortlist = [3, 2, 3]  # we recommend to start with `Nref`
 
     nswtchstr = 'Nswitches' + ''.join(str(e) for e in nswtchshortlist)
-    dtstrdct = dict(prefix=ddir+problem+scheme+nswtchstr,
-                    method=2, N=None, Nts=Nts, t0=t0, te=tE)
-    check_the_sim(problem='cylinderwake', index=2, nswtchsl=nswtchshortlist,
-                  scheme='CR', Re=120, Nts=Nts, paraout=False, t0=t0, tE=tE,
-                  dtstrdct=dtstrdct, debug=debug)
+    for Nts in Ntslist:
+        dtstrdct = dict(prefix=ddir+problem+scheme+nswtchstr,
+                        method=2, N=None, Nts=Nts, t0=t0, te=tE)
+        check_the_sim(problem='cylinderwake', index=2,
+                      nswtchsl=nswtchshortlist, scheme='CR', Re=120,
+                      Nts=Nts, paraout=False, t0=t0, tE=tE,
+                      dtstrdct=dtstrdct, debug=debug)
