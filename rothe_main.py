@@ -194,8 +194,8 @@ def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
-    Ntslist = [1024, 2048]
-    t0, tE = 0.0, 0.2
+    Ntslist = [128, 256, 512]
+    t0, tE = 0.0, 0.02
     nswtchshortlist = [3, 2, 3]  # we recommend to start with `Nref`
 
     verrl, perrl, tmeshl = [], [], []
@@ -207,8 +207,11 @@ if __name__ == '__main__':
                           nswtchsl=nswtchshortlist, scheme='CR', Re=120,
                           Nts=Nts, paraout=False, t0=t0, tE=tE,
                           dtstrdct=dtstrdct, debug=debug)
-        tmeshl.append(tmesh)
-        verrl.append(verr)
-        perrl.append(perr)
-    cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11)
-    cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22)
+        tmeshl.append(tmesh[1:])
+        verrl.append(verr[1:])
+        perrl.append(perr[1:])
+    markerl = ['s', '^', '.']
+    cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11, logscaley=2,
+                  markerl=markerl)
+    cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22, logscaley=2,
+                  markerl=markerl)

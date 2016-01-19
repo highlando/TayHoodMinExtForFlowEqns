@@ -14,6 +14,51 @@ import logging
 logger = logging.getLogger("rothemain.rothe_utils")
 
 
+def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
+                  nmd=dict(V=None, Q=None, npc=None,
+                           MSme=None, ASme=None, JSme=None, fvSme=None,
+                           fp=None, invinds=None, diribcs=None, coefalu=None),
+                  returnalu=False, **kwargs):
+    """ advancing `v, p` for one time using Rothe's method
+
+    Parameters
+    ---
+    vvec : (n, 1) array
+        the current velocity solution vector incl. bcs in the actual coors
+    nmd : dict
+        containing the data (mesh, matrices, rhs) from the next time step,
+        with the matrices resorted according to the minimal extension
+    vvec : (n,1)-array
+        current solution
+    Vc : dolfin.mesh
+        current mesh
+
+    Notes
+    -----
+    Time dependent Dirichlet conditions are not supported by now
+    """
+
+    Npc = nmd['npc']
+    # split the coeffs
+    J1Sme = nmd['Sme'][:, :-Npc]
+    J2Sme = nmd['Sme'][:, -Npc:]
+
+    M1Sme = nmd['Sme'][:, :-Npc]
+    M2Sme = nmd['Sme'][:, -Npc:]
+
+    A1Sme = nmd['Sme'][:, :-Npc]
+    A2Sme = nmd['Sme'][:, -Npc:]
+
+    if not nmd['V'] == Vc:
+        vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
+        logger.debug('len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
+                     format(vvec.size, nmd['V'].dim(), Vc.dim()))
+    mvvec = nmd['M']*vvec[nmd['invinds'], :]
+    convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
+                              diribcs=nmd['diribcs'],
+                              invinds=nmd['invinds'])
+
+
 def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
                Nts=256, t0=0.0, tE=0.2, Nll=[2],
                viniv=None, piniv=None, Nini=None,
