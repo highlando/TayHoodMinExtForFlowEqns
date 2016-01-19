@@ -4,6 +4,8 @@ import numpy as np
 import dolfin_navier_scipy.stokes_navier_utils as snu
 import dolfin_navier_scipy.data_output_utils as dou
 import dolfin_navier_scipy.dolfin_to_sparrays as dts
+import matlibplots.conv_plot_utils as cpu
+
 import rothe_utils as rtu
 from time_int_schemes import get_dtstr
 
@@ -60,7 +62,7 @@ debug = False
 
 def check_the_sim(problem='cylinderwake', index=2, nswtchsl=[2], scheme='CR',
                   nu=None, Re=None, Nts=None, paraout=False, t0=None, tE=None,
-                  dtstrdct={}, debug=False):
+                  plotit=False, dtstrdct={}, debug=False):
 
     trange = np.linspace(t0, tE, Nts+1)
     refdtstrdct = dict(prefix=ddir+problem+scheme,
@@ -84,25 +86,40 @@ def check_the_sim(problem='cylinderwake', index=2, nswtchsl=[2], scheme='CR',
         Nll[(k+1)*swl+1:] = N
     Nll[0] = Nref
     Nll = Nll.tolist()
+    nswtchstr = 'Nswitches' + ''.join(str(e) for e in nswtchsl)
+    dtstrdct['prefix'] = dtstrdct['prefix'] + nswtchstr
+    dtstrdct.update(t=None)
+    cdatstr = get_dtstr(**dtstrdct)
 
-    vdict, pdict = rtu.rothe_ind2(problem=problem, scheme=scheme, Re=Re, nu=nu,
-                                  t0=t0, tE=tE, Nts=Nts,
-                                  viniv=viniv, piniv=piniv, Nini=Nref,
-                                  Nll=Nll, dtstrdct=dtstrdct)
+    compvpdargs = dict(problem=problem, scheme=scheme, Re=Re, nu=nu,
+                       t0=t0, tE=tE, Nts=Nts, viniv=viniv, piniv=piniv,
+                       Nini=Nref, Nll=Nll, dtstrdct=dtstrdct)
+    vdict, pdict = dou.load_or_comp(filestr=[cdatstr+'_vdict',
+                                             cdatstr+'_pdict'],
+                                    comprtn=rtu.rothe_ind2, debug=debug,
+                                    comprtnargs=compvpdargs,
+                                    itsadict=True)
+
+    # vdict, pdict = rtu.rothe_ind2(problem=problem, scheme=scheme,
+    #                               Re=Re, nu=nu,
+    #                               t0=t0, tE=tE, Nts=Nts,
+    #                               viniv=viniv, piniv=piniv, Nini=Nref,
+    #                               Nll=Nll, dtstrdct=dtstrdct)
 
     compvperrargs = dict(problem=problem, scheme=scheme,
                          trange=trange.tolist(),
                          rvd=refvdict, rpd=refpdict, Nref=Nref,
                          cvd=vdict, cpd=pdict, Nll=Nll)
 
-    dtstrdct.update(t=None)
-    cdatstr = get_dtstr(**dtstrdct)
     errdict = dou.load_or_comp(filestr=[cdatstr+'_vperrdict'],
                                comprtn=compvperr, debug=debug,
                                comprtnargs=compvperrargs, itsadict=True)
 
-    rtu.plottimeerrs(trange=trange, perrl=[errdict['perrl']],
-                     verrl=[errdict['verrl']], showplot=True)
+    if plotit:
+        rtu.plottimeerrs(trange=trange, perrl=[errdict['perrl']],
+                         verrl=[errdict['verrl']], showplot=True)
+
+    return errdict['verrl'], errdict['perrl'], trange.tolist()
 
 
 def compvperr(problem=None, scheme=None, trange=None,
@@ -153,9 +170,6 @@ def compvperr(problem=None, scheme=None, trange=None,
 
         verrl.append(dolfin.norm(difffunc))
         perrl.append(dolfin.norm(difffuncp))
-        # perrl.append(dolfin.errornorm(preff, pcurf))
-        # print perrl, verrl
-        # raise Warning('TODO: debug')
 
     return dict(verrl=verrl, perrl=perrl, trange=trange, Nll=Nll, Nref=Nref)
 
@@ -180,15 +194,21 @@ def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
-    Ntslist = [512, 1024]
-    t0, tE = 0.0, 0.02
+    Ntslist = [1024, 2048]
+    t0, tE = 0.0, 0.2
     nswtchshortlist = [3, 2, 3]  # we recommend to start with `Nref`
 
-    nswtchstr = 'Nswitches' + ''.join(str(e) for e in nswtchshortlist)
+    verrl, perrl, tmeshl = [], [], []
     for Nts in Ntslist:
-        dtstrdct = dict(prefix=ddir+problem+scheme+nswtchstr,
+        dtstrdct = dict(prefix=ddir+problem+scheme,
                         method=2, N=None, Nts=Nts, t0=t0, te=tE)
-        check_the_sim(problem='cylinderwake', index=2,
-                      nswtchsl=nswtchshortlist, scheme='CR', Re=120,
-                      Nts=Nts, paraout=False, t0=t0, tE=tE,
-                      dtstrdct=dtstrdct, debug=debug)
+        verr, perr, tmesh = \
+            check_the_sim(problem='cylinderwake', index=2,
+                          nswtchsl=nswtchshortlist, scheme='CR', Re=120,
+                          Nts=Nts, paraout=False, t0=t0, tE=tE,
+                          dtstrdct=dtstrdct, debug=debug)
+        tmeshl.append(tmesh)
+        verrl.append(verr)
+        perrl.append(perr)
+    cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11)
+    cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22)
