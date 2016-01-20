@@ -46,10 +46,10 @@ class TestSmaMinTexFunctions(unittest.TestCase):
         import prob_defs as tts
         import dolfin_to_nparrays as dtn
         from smamin_utils import col_columns_atend, revert_sort_tob2
-        import smartminex_tayhoomesh
+        import smamin_thcr_mesh
 
         N = 32
-        mesh = smartminex_tayhoomesh.getmake_mesh(N)
+        mesh = smamin_thcr_mesh.getmake_mesh(N)
 
         V = dolfin.VectorFunctionSpace(mesh, "CG", 2)
         Q = dolfin.FunctionSpace(mesh, "CG", 1)
@@ -70,8 +70,7 @@ class TestSmaMinTexFunctions(unittest.TestCase):
         Bc = Ba[:, invinds]
         BTc = BTa[invinds, :]
 
-        B2BubInds = smartminex_tayhoomesh.get_B2_bubbleinds(N, V, mesh)
-        #B2BubInds = np.array([2,4])
+        B2BubInds, _ = smamin_thcr_mesh.get_B2_bubbleinds(N, V, mesh)
         # we need the B2Bub indices in the reduced setting vc
         # this gives a masked array of boolean type
         B2BubBool = np.in1d(np.arange(V.dim())[invinds], B2BubInds)
@@ -153,7 +152,7 @@ class TestSmaMinTexFunctions(unittest.TestCase):
             ua = project(u, U)
             ua = ua.vector()
             ua = ua.array()
-            #uc = np.atleast_2d(ua[invinds].T)
+            # uc = np.atleast_2d(ua[invinds].T)
             return ua
 
         eoca = np.zeros(len(self.Nlist))

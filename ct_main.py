@@ -9,7 +9,7 @@ import glob
 
 import dolfin_to_nparrays as dtn
 import time_int_schemes as tis
-import smartminex_tayhoomesh as smt
+import smamin_thcr_mesh as smt
 
 from prob_defs import ProbParams, FempToProbParams
 

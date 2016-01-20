@@ -1,6 +1,6 @@
 import dolfin
 import numpy as np
-import smartminex_tayhoomesh
+import smamin_thcr_mesh
 import sympy as smp
 
 from dolfin import Expression
@@ -89,7 +89,7 @@ class ProbParams(object):
 
         self.N = N
         if scheme == 'TH':
-            self.mesh = smartminex_tayhoomesh.getmake_mesh(N)
+            self.mesh = smamin_thcr_mesh.getmake_mesh(N)
             self.V = dolfin.VectorFunctionSpace(self.mesh, "CG", 2)
             self.Q = dolfin.FunctionSpace(self.mesh, "CG", 1)
         elif scheme == 'CR':
