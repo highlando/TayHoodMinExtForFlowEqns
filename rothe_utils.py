@@ -9,15 +9,16 @@ import dolfin_navier_scipy.data_output_utils as dou
 import sadptprj_riclyap_adi.lin_alg_utils as lau
 
 from time_int_schemes import get_dtstr
+import smartminex_tayhoomesh as smt
 
 import logging
 logger = logging.getLogger("rothemain.rothe_utils")
 
 
 def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
-                  nmd=dict(V=None, Q=None, npc=None,
+                  nmd=dict(V=None, Q=None, M=None, invinds=None, npc=None,
                            MSme=None, ASme=None, JSme=None, fvSme=None,
-                           fp=None, invinds=None, diribcs=None, coefalu=None),
+                           fp=None, diribcs=None, coefalu=None),
                   returnalu=False, **kwargs):
     """ advancing `v, p` for one time using Rothe's method
 
@@ -27,7 +28,7 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
         the current velocity solution vector incl. bcs in the actual coors
     nmd : dict
         containing the data (mesh, matrices, rhs) from the next time step,
-        with the matrices resorted according to the minimal extension
+        with the `*Sme` matrices resorted according to the minimal extension
     vvec : (n,1)-array
         current solution
     Vc : dolfin.mesh
@@ -53,6 +54,7 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
         vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
         logger.debug('len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
                      format(vvec.size, nmd['V'].dim(), Vc.dim()))
+
     mvvec = nmd['M']*vvec[nmd['invinds'], :]
     convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
                               diribcs=nmd['diribcs'],
@@ -194,7 +196,16 @@ def _vctovn(vvec=None, vfun=None, Vc=None, Vn=None, diribcs=None):
 
 
 def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
-                    onlymesh=False):
+                    onlymesh=False, smaminex=False):
+    """
+
+    Parameters
+    ---
+    smaminex : boolean, optional
+        whether compute return the rearranged matrices needed for the
+        index-1 formulation with minimal extension [Altmann, Heiland 2015],
+        defaults to `False`
+    """
 
     if onlymesh:
         femp = dnsps.get_sysmats(problem=problem, N=N, scheme=scheme,
@@ -208,9 +219,18 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
         V, Q = femp['V'], femp['Q']
         invinds, diribcs = femp['invinds'],  femp['diribcs']
         fv, fp = rhsd['fv'], rhsd['fp']
+        cmd = dict(M=M, A=A, J=J, V=V, Q=Q, invinds=invinds, diribcs=diribcs,
+                   fv=fv, fp=fp, N=N, Re=femp['Re'])
+        if smaminex:
+            MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
+                get_smamin_rearrangement(N, PrP, M=Mc, A=Ac, B=Bc,
+                                         crinicell=cricell, addnedgeat=cricell,
+                                         scheme=scheme, fullB=Ba)
+        FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
+        FpbcSme = fpbc
 
-        return dict(M=M, A=A, J=J, V=V, Q=Q, invinds=invinds, diribcs=diribcs,
-                    fv=fv, fp=fp, N=N, Re=femp['Re'])
+
+        return cmd
 
 
 def plottimeerrs(trange=None, verrl=None, perrl=None, fignums=[131, 132],

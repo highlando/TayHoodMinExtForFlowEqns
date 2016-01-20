@@ -162,10 +162,10 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
         print 'condition number is ', npla.cond(fbsmecr.T.todense())
         print 'N is ', N
 
-    if A is not None:
-        return MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI
-    else:
+    if A is None:
         return MSmeCL, BSme, B2Inds, B2BoolInv, B2BI
+    else:
+        return MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI
 
 
 def getmake_mesh(N):
