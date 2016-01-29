@@ -9,16 +9,22 @@ import dolfin_navier_scipy.data_output_utils as dou
 import sadptprj_riclyap_adi.lin_alg_utils as lau
 
 from time_int_schemes import get_dtstr
-import smartminex_tayhoomesh as smt
+import smamin_thcr_mesh as smt
 
 import logging
 logger = logging.getLogger("rothemain.rothe_utils")
+
+__all__ = ['roth_upd_smmx',
+           'rothe_ind2',
+           'get_curmeshdict',
+           'plottimeerrs']
 
 
 def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
                   nmd=dict(V=None, Q=None, M=None, invinds=None, npc=None,
                            MSme=None, ASme=None, JSme=None, fvSme=None,
-                           fp=None, diribcs=None, coefalu=None),
+                           fp=None, diribcs=None, coefalu=None,
+                           smmxqq2vel=None, vel2smmxqq=None),
                   returnalu=False, **kwargs):
     """ advancing `v, p` for one time using Rothe's method
 
@@ -41,24 +47,25 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
 
     Npc = nmd['npc']
     # split the coeffs
-    J1Sme = nmd['Sme'][:, :-Npc]
-    J2Sme = nmd['Sme'][:, -Npc:]
+    J1Sme = nmd['JSme'][:, :-Npc]
+    J2Sme = nmd['JSme'][:, -Npc:]
 
-    M1Sme = nmd['Sme'][:, :-Npc]
-    M2Sme = nmd['Sme'][:, -Npc:]
+    M1Sme = nmd['MSme'][:, :-Npc]
+    M2Sme = nmd['MSme'][:, -Npc:]
 
-    A1Sme = nmd['Sme'][:, :-Npc]
-    A2Sme = nmd['Sme'][:, -Npc:]
+    A1Sme = nmd['ASme'][:, :-Npc]
+    A2Sme = nmd['ASme'][:, -Npc:]
 
     if not nmd['V'] == Vc:
         vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
         logger.debug('len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
                      format(vvec.size, nmd['V'].dim(), Vc.dim()))
+    q1c, q2c = nmd['vel2smmxqq'](vvec)
 
-    mvvec = nmd['M']*vvec[nmd['invinds'], :]
     convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
                               diribcs=nmd['diribcs'],
                               invinds=nmd['invinds'])
+    rhsc = 1/cts*M1Sme*q1c + nmd['vel2smmxqq'](convvec) + ...
 
 
 def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
@@ -222,13 +229,42 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
         cmd = dict(M=M, A=A, J=J, V=V, Q=Q, invinds=invinds, diribcs=diribcs,
                    fv=fv, fp=fp, N=N, Re=femp['Re'])
         if smaminex:
+            cricelldict = {0: 758, 1: 1498, 2: 2386, 3: 4843}
+            if problem == 'cyl' and scheme == 'CR':
+                try:
+                    cricell = cricelldict[N]
+                except KeyError():
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
             MSmeCL, ASmeCL, BSme, B2Inds, B2BoolInv, B2BI = smt.\
-                get_smamin_rearrangement(N, PrP, M=Mc, A=Ac, B=Bc,
+                get_smamin_rearrangement(N, None, M=M, A=A, B=J,
+                                         V=V, Q=Q, nu=nu, mesh=femp['mesh'],
                                          crinicell=cricell, addnedgeat=cricell,
-                                         scheme=scheme, fullB=Ba)
-        FvbcSme = np.vstack([fvbc[~B2BoolInv, ], fvbc[B2BoolInv, ]])
-        FpbcSme = fpbc
+                                         scheme=scheme,
+                                         fullB=stokesmatsc['Jfull'])
 
+            FvbcSme = np.vstack([fv[~B2BoolInv, ], fv[B2BoolInv, ]])
+
+            def sortitback(q1=None, q2=None):
+                vc = np.zeros((fv.size, 1))
+                vc[~B2BoolInv, ] = q1
+                vc[B2BoolInv, ] = q2
+                return vc
+
+            def sortitthere(vc, getitstacked=False):
+                vc = np.zeros((fv.size, 1))
+                q1 = vc[~B2BoolInv, ]
+                q2 = vc[B2BoolInv, ]
+                if getitstacked:
+                    return np.vstack([q1, q2])
+                else:
+                    return q1, q2
+
+            cmd.update(dict(ASme=ASmeCL, JSme=BSme,
+                            MSme=MSmeCL, fvSme=FvbcSme,
+                            smmxqq2vel=sortitback,
+                            vel2smmxqq=sortitthere))
 
         return cmd
 
