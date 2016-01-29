@@ -4,7 +4,9 @@ import numpy.linalg as npla
 import scipy.sparse as sps
 
 
-def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
+def get_smamin_rearrangement(N, PrP, V=None, Q=None, invinds=None, nu=None,
+                             Pdof=None, M=None, A=None, B=None, mesh=None,
+                             addnedgeat=None,
                              scheme='TH', fullB=None, crinicell=None):
     from smamin_utils import col_columns_atend
     from scipy.io import loadmat, savemat
@@ -40,19 +42,25 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
     B2BI : (K, ) int array
         indices of the ext. nodes w.r.t the inner nodes in V
     """
+    Q is PrP.Q if Q is None else Q
+    V is PrP.V if V is None else V
+    invinds is PrP.invinds if invinds is None else invinds
+    nu is PrP.nu if nu is None else nu
+    mesh is PrP.mesh if mesh is None else mesh
+    Pdof is PrP.Pdof if Pdof is None and PrP is not None else Pdof
 
     if scheme == 'TH':
         print 'solving index 1 -- with TH scheme'
-        dname = 'SmeMcBc_N{0}nu{1}_TH'.format(N, PrP.nu)
+        dname = 'SmeMcBc_N{0}nu{1}_TH'.format(N, nu)
         get_b2inds_rtn = get_B2_bubbleinds
-        args = dict(N=N, V=PrP.V, mesh=PrP.mesh)
+        args = dict(N=N, V=V, mesh=mesh)
     elif scheme == 'CR':
         print 'solving index 1 -- with CR scheme'
-        dname = 'SmeMcBc_N{0}nu{1}_CR'.format(N, PrP.nu)
+        dname = 'SmeMcBc_N{0}nu{1}_CR'.format(N, nu)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
-        args = dict(N=N, V=PrP.V, mesh=PrP.mesh, Q=PrP.Q, inicell=crinicell,
-                    B_matrix=B, invinds=PrP.invinds)
+        args = dict(N=N, V=V, mesh=mesh, Q=Q, inicell=crinicell,
+                    B_matrix=B, invinds=invinds)
 
     try:
         SmDic = loadmat(dname)
@@ -76,7 +84,7 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
 
         # the B2 inds wrt to inner nodes
         # this gives a masked array of boolean type
-        B2BoolInv = np.in1d(np.arange(PrP.V.dim())[PrP.invinds], B2Inds)
+        B2BoolInv = np.in1d(np.arange(V.dim())[invinds], B2Inds)
         # this as indices
         B2BI = np.arange(len(B2BoolInv), dtype=np.int32)[B2BoolInv]
         # Reorder the matrices for smart min ext...
@@ -120,14 +128,14 @@ def get_smamin_rearrangement(N, PrP, M=None, A=None, B=None, addnedgeat=None,
     if only_check_cond:
         print 'Scheme is ', scheme
         import matplotlib.pylab as pl
-        if PrP.Pdof is None:
+        if Pdof is None:
             B2 = BSme[:, :][:, -B2Inds.size:]
             B2res = fullB[pdoflist.flatten(), :][:, B2Inds.flatten()]
             print 'condition number is ', npla.cond(B2res.todense())
             # B2res = BSme[pdoflist.flatten(), :][:, -B2Inds.size:]
             pl.figure(2)
             pl.spy(B2res)  # [:100, :][:, :100])
-        elif PrP.Pdof == 0:
+        elif Pdof == 0:
             B2 = BSme[1:, :][:, -B2Inds.size:]
             print 'condition number is ', npla.cond(B2.todense())
         else:

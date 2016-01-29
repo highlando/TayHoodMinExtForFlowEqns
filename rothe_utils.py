@@ -1,5 +1,8 @@
 import numpy as np
+import numpy.linalg as npla
 import matplotlib.pyplot as plt
+import scipy.sparse as sps
+import scipy.sparse.linalg as spsla
 
 import dolfin
 
@@ -15,7 +18,8 @@ import logging
 logger = logging.getLogger("rothemain.rothe_utils")
 
 __all__ = ['roth_upd_smmx',
-           'rothe_ind2',
+           'rothe_time_int',
+           'roth_upd_ind2',
            'get_curmeshdict',
            'plottimeerrs']
 
@@ -60,18 +64,44 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
         vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
         logger.debug('len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
                      format(vvec.size, nmd['V'].dim(), Vc.dim()))
-    q1c, q2c = nmd['vel2smmxqq'](vvec)
+    q1c, q2c = nmd['vel2smmxqq'](vvec[nmd['invinds']])
 
     convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
                               diribcs=nmd['diribcs'],
                               invinds=nmd['invinds'])
-    rhsc = 1/cts*M1Sme*q1c + nmd['vel2smmxqq'](convvec) + ...
+
+    logger.debug('in `roth_upd_smmx`: cts={0}'.format(cts))
+
+    coefmatmom = sps.hstack([1/cts*M1Sme+A1Sme, M2Sme, -nmd['JSme'].T, A2Sme])
+    coefmdivdrv = sps.hstack([1/cts*J1Sme, J2Sme,
+                              sps.csr_matrix((Npc, 2*Npc))])
+    coefmdiv = sps.hstack([J1Sme, sps.csr_matrix((Npc, 2*Npc)), J2Sme])
+    coefmat = sps.vstack([coefmatmom, coefmdivdrv, coefmdiv])
+
+    rhsmom = 1/cts*M1Sme*q1c - nmd['vel2smmxqq'](convvec, getitstacked=True) +\
+        nmd['fvSme']
+    rhsdivdrv = 1/cts*J1Sme*q1c
+    rhsdiv = nmd['fp']
+    rhs = np.vstack([rhsmom, rhsdivdrv, rhsdiv])
+
+    qqpqnext = spsla.spsolve(coefmat, rhs)
+
+    Nvc = A1Sme.shape[0]
+    q1, q2 = qqpqnext[:Nvc-Npc], qqpqnext[Nvc+Npc:Nvc+2*Npc]
+    p_new = qqpqnext[Nvc:Nvc+Npc]
+    v_new = nmd['smmxqq2vel'](q1=q1, q2=q2)
+    vp_new = np.vstack([v_new, p_new.reshape((p_new.size, 1))])
+
+    if returnalu:
+        return vp_new, None
+    else:
+        return vp_new
 
 
-def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
-               Nts=256, t0=0.0, tE=0.2, Nll=[2],
-               viniv=None, piniv=None, Nini=None,
-               scheme=None, dtstrdct={}):
+def rothe_time_int(problem='cylinderwake', nu=None, Re=None,
+                   Nts=256, t0=0.0, tE=0.2, Nll=[2],
+                   viniv=None, piniv=None, Nini=None,
+                   scheme=None, dtstrdct={}, method=2):
 
     trange = np.linspace(t0, tE, Nts+1)
 
@@ -83,31 +113,41 @@ def rothe_ind2(problem='cylinderwake', nu=None, Re=None,
     dou.save_npa(piniv, cdatstr + '__p')
     logger.info('v/p saved to ' + cdatstr + '__v/__p')
     curpdict = {t: cdatstr + '__p'}
+    smaminex = True if method == 1 else False
 
     vcurvec = viniv
+    logger.debug(' t={0}, |v|={1}'.format(t, npla.norm(vcurvec)))
     curmeshdict = get_curmeshdict(problem=problem, N=Nll[0], nu=nu, Re=Re,
-                                  scheme=scheme)
+                                  scheme=scheme, smaminex=smaminex)
     curmeshdict.update(coefalu=None)
     Vc = curmeshdict['V']
     for tk, t in enumerate(trange[1:]):
         cts = t - trange[tk]
         if not Nll[tk+1] == Nll[tk]:
             curmeshdict = get_curmeshdict(problem=problem, N=Nll[tk+1], nu=nu,
-                                          Re=Re, scheme=scheme)
+                                          Re=Re, scheme=scheme,
+                                          smaminex=smaminex)
             curmeshdict.update(coefalu=None)
             logger.info('changed the mesh from N={0} to N={1} at t={2}'.
                         format(Nll[tk], Nll[tk+1], t))
             # change in the mesh
         Nvc = curmeshdict['A'].shape[0]
         logger.debug("t={0}, dim V={1}".format(t, curmeshdict['V'].dim()))
-        vpcur, coefalu = \
-            roth_upd_ind2(vvec=vcurvec, cts=cts,
-                          Vc=Vc, diribcsc=curmeshdict['diribcs'],
-                          nmd=curmeshdict, returnalu=True)
+        if smaminex:
+            vpcur, coefalu = \
+                roth_upd_smmx(vvec=vcurvec, cts=cts,
+                              Vc=Vc, diribcsc=curmeshdict['diribcs'],
+                              nmd=curmeshdict, returnalu=True)
+        else:  # index 2
+            vpcur, coefalu = \
+                roth_upd_ind2(vvec=vcurvec, cts=cts,
+                              Vc=Vc, diribcsc=curmeshdict['diribcs'],
+                              nmd=curmeshdict, returnalu=True)
         dtstrdct.update(dict(t=t, N=Nll[tk+1]))
         cdatstr = get_dtstr(**dtstrdct)
         # add the boundary values to the velocity
         vcurvec = dts.append_bcs_vec(vpcur[:Nvc], **curmeshdict)
+        logger.debug(' t={0}, |v|={1}'.format(t, npla.norm(vcurvec)))
         dou.save_npa(vcurvec, cdatstr+'__vel')
         curvdict.update({t: cdatstr+'__vel'})
         dou.save_npa(vpcur[Nvc:, :], cdatstr+'__p')
@@ -225,12 +265,16 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
         M, A, J = stokesmatsc['M'], stokesmatsc['A'], stokesmatsc['J']
         V, Q = femp['V'], femp['Q']
         invinds, diribcs = femp['invinds'],  femp['diribcs']
+        nu = femp['nu'] if nu is None else nu
         fv, fp = rhsd['fv'], rhsd['fp']
         cmd = dict(M=M, A=A, J=J, V=V, Q=Q, invinds=invinds, diribcs=diribcs,
                    fv=fv, fp=fp, N=N, Re=femp['Re'])
+        logger.debug('in `get_curmeshdict`: ' +
+                     'problem={0}, scheme={1}, Re={2}, nu={3}, ppin={4}'.
+                     format(problem, scheme, Re, nu, femp['ppin']))
         if smaminex:
             cricelldict = {0: 758, 1: 1498, 2: 2386, 3: 4843}
-            if problem == 'cyl' and scheme == 'CR':
+            if problem == 'cylinderwake' and scheme == 'CR':
                 try:
                     cricell = cricelldict[N]
                 except KeyError():
@@ -241,15 +285,16 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
                 get_smamin_rearrangement(N, None, M=M, A=A, B=J,
                                          V=V, Q=Q, nu=nu, mesh=femp['mesh'],
                                          crinicell=cricell, addnedgeat=cricell,
-                                         scheme=scheme,
+                                         Pdof=femp['ppin'],
+                                         scheme=scheme, invinds=invinds,
                                          fullB=stokesmatsc['Jfull'])
 
             FvbcSme = np.vstack([fv[~B2BoolInv, ], fv[B2BoolInv, ]])
 
             def sortitback(q1=None, q2=None):
                 vc = np.zeros((fv.size, 1))
-                vc[~B2BoolInv, ] = q1
-                vc[B2BoolInv, ] = q2
+                vc[~B2BoolInv, ] = q1.reshape((q1.size, 1))
+                vc[B2BoolInv, ] = q2.reshape((q2.size, 1))
                 return vc
 
             def sortitthere(vc, getitstacked=False):
@@ -263,7 +308,7 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
 
             cmd.update(dict(ASme=ASmeCL, JSme=BSme,
                             MSme=MSmeCL, fvSme=FvbcSme,
-                            smmxqq2vel=sortitback,
+                            smmxqq2vel=sortitback, npc=BSme.shape[0],
                             vel2smmxqq=sortitthere))
 
         return cmd

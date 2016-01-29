@@ -42,7 +42,6 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     """
 
-    N = PrP.Pdof
     Nts, t0, tE, dt, Nv = init_time_stepping(PrP, TsP)
     tcur = t0
     # remove the p - freedom
@@ -345,7 +344,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
             if i + etap == 1 and TsP.SaveIniVal:
                 from scipy.io import savemat
-                dname = 'IniValSmaMinN%s' % N
+                dname = 'IniValSmaMinN%s' % Nv
                 savemat(dname, {'qqpq_old': qqpq_old})
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)

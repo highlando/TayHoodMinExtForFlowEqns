@@ -12,18 +12,18 @@ from time_int_schemes import get_dtstr
 dolfin.parameters.linear_algebra_backend = 'uBLAS'
 
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("rothemain")
 # disable the fenics loggers
 logging.getLogger('UFL').setLevel(logging.WARNING)
 logging.getLogger('FFC').setLevel(logging.WARNING)
 
 fh = logging.FileHandler('log.rothemain')
-fh.setLevel(logging.INFO)
+fh.setLevel(logging.DEBUG)
 
 formatter = \
-    logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-# logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 
 fh.setFormatter(formatter)
 logger.addHandler(fh)
@@ -60,13 +60,13 @@ debug = True
 debug = False
 
 
-def check_the_sim(problem='cylinderwake', index=2, nswtchsl=[2], scheme='CR',
+def check_the_sim(problem='cylinderwake', nswtchsl=[2], scheme='CR',
                   nu=None, Re=None, Nts=None, paraout=False, t0=None, tE=None,
-                  plotit=False, dtstrdct={}, debug=False):
-
+                  plotit=False, dtstrdct={}, debug=False,
+                  method=2, refmethod=2):
     trange = np.linspace(t0, tE, Nts+1)
     refdtstrdct = dict(prefix=ddir+problem+scheme,
-                       method=2, N=None, Nts=Nts, t0=t0, te=tE)
+                       method=refmethod, N=None, Nts=Nts, t0=t0, te=tE)
     refdatstr = get_dtstr(t=None, **refdtstrdct)
     compargs = dict(problem=problem, N=Nref, nu=nu, Re=Re, trange=trange,
                     scheme=scheme, data_prefix=refdatstr, debug=debug)
@@ -93,12 +93,13 @@ def check_the_sim(problem='cylinderwake', index=2, nswtchsl=[2], scheme='CR',
 
     compvpdargs = dict(problem=problem, scheme=scheme, Re=Re, nu=nu,
                        t0=t0, tE=tE, Nts=Nts, viniv=viniv, piniv=piniv,
-                       Nini=Nref, Nll=Nll, dtstrdct=dtstrdct)
+                       Nini=Nref, Nll=Nll, dtstrdct=dtstrdct, method=method)
+    logger.info('try to load `' + cdatstr + '_vdict`, `' + cdatstr + '_pdict`')
     vdict, pdict = dou.load_or_comp(filestr=[cdatstr+'_vdict',
                                              cdatstr+'_pdict'],
-                                    comprtn=rtu.rothe_ind2, debug=debug,
+                                    comprtn=rtu.rothe_time_int,
                                     comprtnargs=compvpdargs,
-                                    itsadict=True)
+                                    debug=True, itsadict=True)
 
     # vdict, pdict = rtu.rothe_ind2(problem=problem, scheme=scheme,
     #                               Re=Re, nu=nu,
@@ -194,16 +195,17 @@ def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
-    Ntslist = [128, 256, 512]
-    t0, tE = 0.0, 0.02
+    Ntslist = [16]  # [128]  # , 256, 512]
+    method = 1  # {1: 'smaminex', 2: 'ind2'}
+    t0, tE = 0.0, 0.002
     nswtchshortlist = [3, 2, 3]  # we recommend to start with `Nref`
 
     verrl, perrl, tmeshl = [], [], []
     for Nts in Ntslist:
         dtstrdct = dict(prefix=ddir+problem+scheme,
-                        method=2, N=None, Nts=Nts, t0=t0, te=tE)
+                        method=method, N=None, Nts=Nts, t0=t0, te=tE)
         verr, perr, tmesh = \
-            check_the_sim(problem='cylinderwake', index=2,
+            check_the_sim(problem='cylinderwake', method=method,
                           nswtchsl=nswtchshortlist, scheme='CR', Re=120,
                           Nts=Nts, paraout=False, t0=t0, tE=tE,
                           dtstrdct=dtstrdct, debug=debug)
