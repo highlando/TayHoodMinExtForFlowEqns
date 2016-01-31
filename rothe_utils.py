@@ -62,15 +62,18 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
 
     if not nmd['V'] == Vc:
         vvec = _vctovn(vvec=vvec, Vc=Vc, Vn=nmd['V'])
-        logger.debug('len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
+        logger.debug('interpolate v: len(vvec)={0}, dim(Vn)={1}, dim(Vc)={2}'.
                      format(vvec.size, nmd['V'].dim(), Vc.dim()))
     q1c, q2c = nmd['vel2smmxqq'](vvec[nmd['invinds']])
 
     convvec = dts.get_convvec(u0_vec=vvec, V=nmd['V'],
                               diribcs=nmd['diribcs'],
                               invinds=nmd['invinds'])
-
+    logger.debug('in `roth_upd_smmx`: |[q1,q2]|={0}'.
+                 format(npla.norm(np.vstack([q1c, q2c]))))
     logger.debug('in `roth_upd_smmx`: cts={0}'.format(cts))
+    logger.debug('in `roth_upd_smmx`: |vvec|={0}'.
+                 format(npla.norm(vvec[nmd['invinds']])))
 
     coefmatmom = sps.hstack([1/cts*M1Sme+A1Sme, M2Sme, -nmd['JSme'].T, A2Sme])
     coefmdivdrv = sps.hstack([1/cts*J1Sme, J2Sme,
@@ -83,6 +86,7 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
     rhsdivdrv = 1/cts*J1Sme*q1c
     rhsdiv = nmd['fp']
     rhs = np.vstack([rhsmom, rhsdivdrv, rhsdiv])
+    logger.debug('in `roth_upd_smmx`: |rhs|={0}'.format(npla.norm(rhs)))
 
     qqpqnext = spsla.spsolve(coefmat, rhs)
 
@@ -91,6 +95,7 @@ def roth_upd_smmx(vvec=None, cts=None, nu=None, Vc=None, diribcsc=None,
     p_new = qqpqnext[Nvc:Nvc+Npc]
     v_new = nmd['smmxqq2vel'](q1=q1, q2=q2)
     vp_new = np.vstack([v_new, p_new.reshape((p_new.size, 1))])
+    logger.debug('in `roth_upd_smmx`: |vpnew|={0}'.format(npla.norm(vp_new)))
 
     if returnalu:
         return vp_new, None
@@ -298,7 +303,6 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
                 return vc
 
             def sortitthere(vc, getitstacked=False):
-                vc = np.zeros((fv.size, 1))
                 q1 = vc[~B2BoolInv, ]
                 q2 = vc[B2BoolInv, ]
                 if getitstacked:

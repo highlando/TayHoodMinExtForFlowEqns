@@ -13,6 +13,7 @@ dolfin.parameters.linear_algebra_backend = 'uBLAS'
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("rothemain")
 # disable the fenics loggers
 logging.getLogger('UFL').setLevel(logging.WARNING)
@@ -20,6 +21,7 @@ logging.getLogger('FFC').setLevel(logging.WARNING)
 
 fh = logging.FileHandler('log.rothemain')
 fh.setLevel(logging.DEBUG)
+fh.setLevel(logging.INFO)
 
 formatter = \
     logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -74,7 +76,7 @@ def check_the_sim(problem='cylinderwake', nswtchsl=[2], scheme='CR',
                                                    refdatstr+'_refpdict'],
                                           comprtn=gettheref,
                                           comprtnargs=compargs,
-                                          debug=debug, itsadict=True)
+                                          debug=False, itsadict=True)
 
     viniv = dou.load_npa(refvdict['{0}'.format(t0)])
     piniv = dou.load_npa(refpdict['{0}'.format(t0)])
@@ -99,7 +101,7 @@ def check_the_sim(problem='cylinderwake', nswtchsl=[2], scheme='CR',
                                              cdatstr+'_pdict'],
                                     comprtn=rtu.rothe_time_int,
                                     comprtnargs=compvpdargs,
-                                    debug=True, itsadict=True)
+                                    debug=debug, itsadict=True)
 
     # vdict, pdict = rtu.rothe_ind2(problem=problem, scheme=scheme,
     #                               Re=Re, nu=nu,
@@ -120,7 +122,8 @@ def check_the_sim(problem='cylinderwake', nswtchsl=[2], scheme='CR',
         rtu.plottimeerrs(trange=trange, perrl=[errdict['perrl']],
                          verrl=[errdict['verrl']], showplot=True)
 
-    return errdict['verrl'], errdict['perrl'], trange.tolist()
+    return (errdict['verrl'], errdict['perrl'],
+            errdict['verrint'], errdict['perrint'], trange.tolist())
 
 
 def compvperr(problem=None, scheme=None, trange=None,
@@ -172,7 +175,20 @@ def compvperr(problem=None, scheme=None, trange=None,
         verrl.append(dolfin.norm(difffunc))
         perrl.append(dolfin.norm(difffuncp))
 
-    return dict(verrl=verrl, perrl=perrl, trange=trange, Nll=Nll, Nref=Nref)
+    pverr, pperr, pt = verrl[0], perrl[0], trange[0]
+    verrint, perrint = 0, 0
+    for k in range(len(trange)-1):
+        cverr, cperr, ct = verrl[k+1], perrl[k+1], trange[k+1]
+        cts = ct - pt
+        logger.debug('t={0}, cts={3}, cverr={1}, verrint={2}'.
+                     format(ct, cverr, verrint, cts))
+        verrint += 0.5*cts*(pverr + cverr)
+        perrint += 0.5*cts*(pperr + cperr)
+        pverr, pperr, pt = cverr, cperr, ct
+
+    return dict(verrl=verrl, perrl=perrl, trange=trange,
+                perrint=perrint, verrint=verrint,
+                Nll=Nll, Nref=Nref)
 
 
 def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
@@ -195,25 +211,34 @@ def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
-    Ntslist = [16]  # [128]  # , 256, 512]
-    method = 1  # {1: 'smaminex', 2: 'ind2'}
-    t0, tE = 0.0, 0.002
-    nswtchshortlist = [3, 2, 3]  # we recommend to start with `Nref`
+    Re = 80
+    Ntslist = [16, 32, 64]  # [128, 256]  # [16]
+    methlist = [1, 2]  # {1: 'smaminex', 2: 'ind2'}
+    t0, tE = 0.0, 0.1
+    nswtchshortlist = [3, 2, 3]  # , 2, 3]  # we recommend to start with `Nref`
 
     verrl, perrl, tmeshl = [], [], []
-    for Nts in Ntslist:
-        dtstrdct = dict(prefix=ddir+problem+scheme,
-                        method=method, N=None, Nts=Nts, t0=t0, te=tE)
-        verr, perr, tmesh = \
-            check_the_sim(problem='cylinderwake', method=method,
-                          nswtchsl=nswtchshortlist, scheme='CR', Re=120,
-                          Nts=Nts, paraout=False, t0=t0, tE=tE,
-                          dtstrdct=dtstrdct, debug=debug)
-        tmeshl.append(tmesh[1:])
-        verrl.append(verr[1:])
-        perrl.append(perr[1:])
+    legl = []
+    for method in methlist:
+        for Nts in Ntslist:
+            dtstrdct = dict(prefix=ddir+problem+scheme,
+                            method=method, N=None, Nts=Nts, t0=t0, te=tE)
+            verr, perr, perrint, verrint, tmesh = \
+                check_the_sim(problem='cylinderwake', method=method,
+                              nswtchsl=nswtchshortlist, scheme='CR', Re=Re,
+                              Nts=Nts, paraout=False, t0=t0, tE=tE,
+                              dtstrdct=dtstrdct, debug=debug)
+            tmeshl.append(tmesh[1:])
+            verrl.append(verr[1:])
+            perrl.append(perr[1:])
+            nswtchstr = 'N' + ''.join(str(e) for e in nswtchshortlist)
+            legl.append('Nts={0} (ind{1})'.format(Nts, method))
+            logger.info(nswtchstr + ': Nts={0}, m={1}, veint={2}, peint={3}'.
+                        format(Nts, method, verrint, perrint))
     markerl = ['s', '^', '.']
     cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11, logscaley=2,
-                  markerl=markerl)
+                  markerl=markerl, leglist=legl, title='pointwise error in p',
+                  tikzfile='p-pointwiseerror.tex')
     cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22, logscaley=2,
-                  markerl=markerl)
+                  markerl=markerl, leglist=legl, title='pointwise error in v',
+                  tikzfile='vel-pointwiseerror.tex')

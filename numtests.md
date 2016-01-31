@@ -1,3 +1,11 @@
+Rothe
+===
+### smmx exps
+ * with Nswitches --- smmx much worse than ind2 in veloctity
+ * no jump in pressure
+ * but jump in velocity -- however independent of `dt`
+
+
 Cylinder 
 ===
 
