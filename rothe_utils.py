@@ -278,7 +278,8 @@ def get_curmeshdict(problem=None, N=None, Re=None, nu=None, scheme=None,
                      'problem={0}, scheme={1}, Re={2}, nu={3}, ppin={4}'.
                      format(problem, scheme, Re, nu, femp['ppin']))
         if smaminex:
-            cricelldict = {0: 758, 1: 1498, 2: 2386, 3: 4843}
+            cricelldict = {0: 758, 1: 1498, 2: 2386, 3: 4843, 4: 6993}
+            # TODO: this is hardcoded for the FEniCS cylinder meshes
             if problem == 'cylinderwake' and scheme == 'CR':
                 try:
                     cricell = cricelldict[N]

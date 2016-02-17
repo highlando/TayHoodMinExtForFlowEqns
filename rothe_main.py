@@ -12,15 +12,16 @@ from time_int_schemes import get_dtstr
 dolfin.parameters.linear_algebra_backend = 'uBLAS'
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("rothemain")
 # disable the fenics loggers
 logging.getLogger('UFL').setLevel(logging.WARNING)
 logging.getLogger('FFC').setLevel(logging.WARNING)
+logger.setLevel('INFO')  # default is DEBUG
 
 fh = logging.FileHandler('log.rothemain')
-fh.setLevel(logging.DEBUG)
+# fh.setLevel(logging.DEBUG)
 fh.setLevel(logging.INFO)
 
 formatter = \
@@ -52,9 +53,6 @@ Issues:
    - that is coherent with `solve_nse`
 '''
 
-Nref = 3
-Nplt = 2
-
 proutdir = 'results/'
 ddir = 'data/'
 
@@ -64,7 +62,7 @@ debug = False
 
 def check_the_sim(problem='cylinderwake', nswtchsl=[2], scheme='CR',
                   nu=None, Re=None, Nts=None, paraout=False, t0=None, tE=None,
-                  plotit=False, dtstrdct={}, debug=False,
+                  plotit=False, dtstrdct={}, debug=False, Nref=3,
                   method=2, refmethod=2):
     trange = np.linspace(t0, tE, Nts+1)
     refdtstrdct = dict(prefix=ddir+problem+scheme,
@@ -211,17 +209,19 @@ def gettheref(problem='cylinderwake', N=None, nu=None, Re=None, Nts=None,
 if __name__ == '__main__':
     problem = 'cylinderwake'
     scheme = 'CR'
-    Re = 80
-    Ntslist = [16, 32, 64]  # [128, 256]  # [16]
+    Re = 60
+    Nref = 3
+    Ntslist = [2048, 4096]  # [16]
     methlist = [1, 2]  # {1: 'smaminex', 2: 'ind2'}
-    t0, tE = 0.0, 0.1
+    t0, tE = 0.0, 2.0
     nswtchshortlist = [3, 2, 3]  # , 2, 3]  # we recommend to start with `Nref`
 
     verrl, perrl, tmeshl = [], [], []
     legl = []
+    keeppointslist = []
     for method in methlist:
         for Nts in Ntslist:
-            dtstrdct = dict(prefix=ddir+problem+scheme,
+            dtstrdct = dict(prefix=ddir+problem+scheme, Nref=Nref,
                             method=method, N=None, Nts=Nts, t0=t0, te=tE)
             verr, perr, perrint, verrint, tmesh = \
                 check_the_sim(problem='cylinderwake', method=method,
@@ -235,10 +235,23 @@ if __name__ == '__main__':
             legl.append('Nts={0} (ind{1})'.format(Nts, method))
             logger.info(nswtchstr + ': Nts={0}, m={1}, veint={2}, peint={3}'.
                         format(Nts, method, verrint, perrint))
-    markerl = ['s', '^', '.']
-    cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11, logscaley=2,
-                  markerl=markerl, leglist=legl, title='pointwise error in p',
-                  tikzfile='p-pointwiseerror.tex')
-    cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22, logscaley=2,
-                  markerl=markerl, leglist=legl, title='pointwise error in v',
-                  tikzfile='vel-pointwiseerror.tex')
+            curptkl = []
+            for k in np.arange(1, len(nswtchshortlist)):
+                jumpindx = k*(len(tmesh)-1)/len(nswtchshortlist)  # an int !!
+                curptkl.extend([jumpindx-1, jumpindx])
+            keeppointslist.append(curptkl)
+    # markerl = ['s', '^', '.', '*', 'o', '+']
+    xticks = np.linspace(t0, tE, 5)
+    ppltdict = dict(leglist=legl, xlabel='t', xticks=xticks, logscaley=2,
+                    usedefaultmarkers=True)
+
+    cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11,
+                  title='pointwise error in p',
+                  tikzfile='p-pointwiseerror.tex',
+                  downsample=40, keeppointslist=keeppointslist,
+                  **ppltdict)
+    cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22,
+                  title='pointwise error in v',
+                  tikzfile='vel-pointwiseerror.tex',
+                  downsample=40,
+                  **ppltdict)
