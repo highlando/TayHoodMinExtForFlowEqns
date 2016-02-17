@@ -232,7 +232,8 @@ if __name__ == '__main__':
             verrl.append(verr[1:])
             perrl.append(perr[1:])
             nswtchstr = 'N' + ''.join(str(e) for e in nswtchshortlist)
-            legl.append('Nts={0} (ind{1})'.format(Nts, method))
+            legl.append('$\\mathsf{{Nts}}={0}$ (index-{1})'.
+                        format(Nts, method))
             logger.info(nswtchstr + ': Nts={0}, m={1}, veint={2}, peint={3}'.
                         format(Nts, method, verrint, perrint))
             curptkl = []
@@ -246,12 +247,14 @@ if __name__ == '__main__':
                     usedefaultmarkers=True)
 
     cpu.para_plot(None, perrl, abscissal=tmeshl, fignum=11,
-                  title='pointwise error in p',
+                  title='pointwise error in $p$',
                   tikzfile='p-pointwiseerror.tex',
-                  downsample=40, keeppointslist=keeppointslist,
+                  xlims=[t0, tE],
+                  downsample=50, keeppointslist=keeppointslist,
                   **ppltdict)
     cpu.para_plot(None, verrl, abscissal=tmeshl, fignum=22,
-                  title='pointwise error in v',
+                  title='pointwise error in $q$',
                   tikzfile='vel-pointwiseerror.tex',
-                  downsample=40,
+                  xlims=[t0, tE],
+                  downsample=50,
                   **ppltdict)
