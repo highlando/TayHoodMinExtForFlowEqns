@@ -3,7 +3,8 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
 
-import dolfin_to_nparrays as dtn
+import dolfin_navier_scipy.dolfin_to_sparrays as dts
+# import dolfin_to_nparrays as dtn
 import time
 
 __all__ = ['halfexp_euler_smarminex',
@@ -466,8 +467,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                     iniiterfac = 1  # fac only in the first Krylov Call
             except IOError:
                 print 'computing data for ', cdatstr, ' ...'
-                ConV = dtn.get_convvec(v, PrP.V)
-                CurFv = dtn.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
+                ConV = dts.get_convvec(u0_dolfun=v, V=PrP.V)
+                CurFv = dts.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
 
                 Iterrhs = np.vstack([MFac*1.0/dt*Mc*vp_old[:Nv, ],
                                      np.zeros((Npc, 1))]) +\
@@ -627,12 +628,12 @@ def expand_vp_dolfunc(PrP, vp=None, vc=None, pc=None, pdof=None):
 
 def get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv):
 
-    ConV = dtn.get_convvec(v, PrP.V)
+    ConV = dts.get_convvec(u0_dolfun=v, V=PrP.V)
     ConV = ConV[PrP.invinds, ]
 
     ConV = np.vstack([ConV[~B2BoolInv], ConV[B2BoolInv]])
 
-    CurFv = dtn.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
+    CurFv = dts.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
     if len(CurFv) != len(PrP.invinds):
         raise Warning('Need fv at innernodes here')
     CurFv = np.vstack([CurFv[~B2BoolInv], CurFv[B2BoolInv]])
