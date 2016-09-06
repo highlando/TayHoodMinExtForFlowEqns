@@ -7,12 +7,13 @@ import matplotlib.pyplot as plt
 import os
 import glob
 
-import dolfin_to_nparrays as dtn
 import time_int_schemes as tis
 import smamin_thcr_mesh as smt
 
 from prob_defs import ProbParams, FempToProbParams
 
+# import dolfin_to_nparrays as dtn
+import dolfin_navier_scipy.dolfin_to_sparrays as dts
 import dolfin_navier_scipy.problem_setups as dnsps
 import dolfin_navier_scipy.stokes_navier_utils as snu
 
@@ -72,7 +73,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         BTc, Bc = stokesmatsc['JT'], stokesmatsc['J']
         Ba = stokesmatsc['Jfull']
 
-        bcinds, bcvals = femp['bcinds'], femp['bcvals']
+        # bcinds, bcvals = femp['bcinds'], femp['bcvals']
 
         fvbc, fpbc = rhsd_stbc['fv'], rhsd_stbc['fp']
         inivdict = dict(A=Ac, J=Bc, JT=BTc, M=Mc,
@@ -92,14 +93,26 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
             nu = 1./Re
         PrP = ProbParams(N, omega=Omega, nu=nu, scheme=scheme)
         # get system matrices as np.arrays
-        Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q, nu=nu)
-        fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
-        print 'Nv, Np -- w/ boundary nodes', BTa.shape
+
+        smts = dts.get_stokessysmats(PrP.V, PrP.Q, nu=nu)
+        rhsvecs = dts.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
+        # Ma, Aa, BTa, Ba = smts['A'], smts['JT'], smts['J']
+        # MPa = smts['MP']
+
+        # Ma, Aa, BTa, Ba, MPa = dtn.get_sysNSmats(PrP.V, PrP.Q, nu=nu)
+        # fv, fp = rhsvecs['fv'], rhsvecs['fp']
+        # fv, fp = dtn.setget_rhs(PrP.V, PrP.Q, PrP.fv, PrP.fp)
+        print 'Nv, Np -- w/ boundary nodes', smts['BTa'].shape
 
         # condense the system by resolving the boundary values
-        (Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals,
-         invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba,
-                                              fv, fp, PrP.velbcs)
+        # (Mc, Ac, BTc, Bc, fvbc, fpbc, bcinds, bcvals,
+        #  invinds) = dtn.condense_sysmatsbybcs(Ma, Aa, BTa, Ba,
+
+        smts.update(rhsvecs)
+        smtsc = dts.condense_sysmatsbybcs(smts, PrP.velbcs)
+        Mc, Ac, BTc, Bc = smtsc['Mc'], smtsc['Ac'], smtsc['BTc'], smtsc['Bc']
+        fvbc, fpbc = smtsc['fvbc'], smtsc['fpbc']
+        #  invinds
         print 'Nv, Np -- w/o boundary nodes', BTc.shape
         PrP.Pdof = 0  # Thats how the smamin is constructed
 
