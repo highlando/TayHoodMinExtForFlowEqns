@@ -42,12 +42,12 @@ def get_smamin_rearrangement(N, PrP, V=None, Q=None, invinds=None, nu=None,
     B2BI : (K, ) int array
         indices of the ext. nodes w.r.t the inner nodes in V
     """
-    Q is PrP.Q if Q is None else Q
-    V is PrP.V if V is None else V
-    invinds is PrP.invinds if invinds is None else invinds
-    nu is PrP.nu if nu is None else nu
-    mesh is PrP.mesh if mesh is None else mesh
-    Pdof is PrP.Pdof if Pdof is None and PrP is not None else Pdof
+    Q = PrP.Q if Q is None else Q
+    V = PrP.V if V is None else V
+    invinds = PrP.invinds if invinds is None else invinds
+    nu = PrP.nu if nu is None else nu
+    mesh = PrP.mesh if mesh is None else mesh
+    Pdof = PrP.Pdof if Pdof is None and PrP is not None else Pdof
 
     if scheme == 'TH':
         print 'solving index 1 -- with TH scheme'

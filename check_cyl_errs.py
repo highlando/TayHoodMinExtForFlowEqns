@@ -15,11 +15,10 @@ dolfin.set_log_level(60)
 samplerate = 1
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
-Ntslist = [2**x for x in range(6, 11)]
+# Ntslist = [2**x for x in range(6, 11)]
+Ntslist = [2**x for x in range(6, 9)]
 Ntsref = 2048
-tol = 2**(-18)
-Ntsref = 2048
-tol = 2**(-18)
+tol = 2**(-16)
 tolcor = True
 method = 1
 
@@ -40,7 +39,7 @@ Nv = J.shape[1]
 Mpfac = spsla.splu(MP)
 
 # get the ref trajectories
-trange = np.linspace(0, tE, Ntsref+1)
+trange = np.linspace(0., tE, Ntsref+1)
 M, A = stokesmatsc['M'], stokesmatsc['A']
 JT, J = stokesmatsc['JT'], stokesmatsc['J']
 invinds = femp['invinds']
@@ -101,10 +100,10 @@ for Nts in Ntslist:
         # ncres = comp_cont_error(v, fpbc, PrP.Q)
         elc.append(ncres)
 
-    trange = np.linspace(0, tE, Nts+1)
+    trange = np.linspace(0., tE, Nts+1)
     samplvec = np.arange(1, len(trange), samplerate)
 
-    app_pverr(0)
+    app_pverr(0.)
 
     for t in trange[samplvec]:
         app_pverr(t)
