@@ -51,12 +51,12 @@ def get_smamin_rearrangement(N, PrP, V=None, Q=None, invinds=None, nu=None,
 
     if scheme == 'TH':
         print 'solving index 1 -- with TH scheme'
-        dname = 'SmeMcBc_N{0}nu{1}_TH'.format(N, nu)
+        dname = 'mats/SmeMcBc_N{0}nu{1}_TH'.format(N, nu)
         get_b2inds_rtn = get_B2_bubbleinds
         args = dict(N=N, V=V, mesh=mesh)
     elif scheme == 'CR':
         print 'solving index 1 -- with CR scheme'
-        dname = 'SmeMcBc_N{0}nu{1}_CR'.format(N, nu)
+        dname = 'mats/SmeMcBc_N{0}nu{1}_CR'.format(N, nu)
         # pressure-DoF of B_matrix NOT removed yet!
         get_b2inds_rtn = get_B2_CRinds
         args = dict(N=N, V=V, mesh=mesh, Q=Q, inicell=crinicell,

@@ -9,7 +9,10 @@ The simulations are started from through file
 ```
 python ct_main.py
 ```
+
 There all parameters are set. The default values of internal parameters of the first commit are the ones used in the simulations presented in the preprint.
+
+You will need to create the directories `data`, `mats`, `results`.
 
 To compute and plot the errors for the cylinder wake setup use
 ```
