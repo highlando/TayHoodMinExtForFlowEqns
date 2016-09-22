@@ -321,12 +321,12 @@ if __name__ == '__main__':
     tE = .2
     prob = 'cyl'
     tol = 2**(-16)
-    Ntslist = [64, 128, 256]  # , 512, 1024]
+    Ntslist = [512]  # [64, 128, 256]  # , 512, 1024]
 
     # solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
     #                     MaxIter=1000,
     #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
-                        MaxIter=520,
+                        MaxIter=370,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)

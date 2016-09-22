@@ -16,7 +16,7 @@ samplerate = 1
 
 N, Re, scheme, tE = 3, 60, 'CR', .2
 # Ntslist = [2**x for x in range(6, 11)]
-Ntslist = [2**x for x in range(6, 9)]
+Ntslist = [2**x for x in range(8, 10)]
 Ntsref = 2048
 tol = 2**(-16)
 tolcor = True

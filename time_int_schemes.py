@@ -213,8 +213,10 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
-            idx = (etap-1)*TsP.NOutPutPts + i
-            cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            idx = (etap-1)*(Nts/TsP.NOutPutPts) + i
+            tnext = trange[idx+1]
+            cdatstr = get_dtstr(t=tnext, **dtstrdct)
+            DT = tnext - tcur
             try:
                 qqpq_next = np.load(cdatstr + '_qqpq' + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
@@ -228,14 +230,14 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 if TsP.linatol > 0 and (TsP.TolCorB or saveallres):
                     ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
                     gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
-                    Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
+                    Iterrhs = 1.0 / DT*np.vstack([MFac*M1Sme*q1_old,
                                                   WCD*B1Sme*q1_old]) +\
                         np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
                     Iterrhs = np.vstack([Iterrhs, WC*FpbcSmeC])
                     if TsP.TolCorB:
                         NormRhsInd1 = np.sqrt(
                             smamin_fem_ip(Iterrhs, Iterrhs, Mcfac, MPcfac,
-                                          Nv, Npc, dt=np.sqrt(dt)))[0][0]
+                                          Nv, Npc, dt=np.sqrt(DT)))[0][0]
                         TolCor = 1.0 / np.max([NormRhsInd1, 1])
                     else:
                         TolCor = 1.0
@@ -246,7 +248,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 # set up right hand side
                 ConV, CurFv = get_conv_curfv_rearr(v, PrP, tcur, B2BoolInv)
                 gdot = np.zeros((Npc, 1))  # TODO: implement \dot g
-                Iterrhs = 1.0 / dt*np.vstack([MFac*M1Sme*q1_old,
+                Iterrhs = 1.0 / DT*np.vstack([MFac*M1Sme*q1_old,
                                               WCD*B1Sme*q1_old]) +\
                     np.vstack([MFac*(FvbcSme + CurFv - ConV), WCD*gdot])
                 Iterrhs = np.vstack([Iterrhs, WC*FpbcSmeC])
@@ -263,7 +265,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                     if TsP.TolCorB:
                         NormRhsInd1 = np.sqrt(
                             smamin_fem_ip(Iterrhs, Iterrhs, MSme, MPc,
-                                          Nv, Npc, dt=np.sqrt(dt)))[0][0]
+                                          Nv, Npc, dt=np.sqrt(DT)))[0][0]
                         TolCor = 1.0 / np.max([NormRhsInd1, 1])
                     else:
                         TolCor = 1.0
@@ -317,18 +319,17 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc,
                                      pdof=PrP.Pdof)
 
-            cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
+            cdatstr = get_dtstr(t=tnext, **dtstrdct)
             np.save(cdatstr, np.vstack([vc, pc]))
 
-            tcur += dt
             # the errors and residuals
             # ContiRes.append(comp_cont_error(v, FpbcSme, PrP.Q))
             TolCorL.append(TolCor)
             ContiRes.append(0)  # troubles with fenics 1.5
             try:
                 vCur, pCur = PrP.v, PrP.p
-                vCur.t = tcur
-                pCur.t = tcur - dt
+                vCur.t = tnext
+                pCur.t = tcur
                 VelEr.append(errornorm(vCur, v))
                 PEr.append(errornorm(pCur, p))
             except AttributeError:
@@ -349,8 +350,10 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
                 from scipy.io import savemat
                 dname = 'IniValSmaMinN%s' % Nv
                 savemat(dname, {'qqpq_old': qqpq_old})
+            tcur = tnext
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
+        print 'DEBUG: idx={0}'.format(idx)
 
         if TsP.ParaviewOutput:
             TsP.UpFiles.u_file << v, tcur
@@ -848,7 +851,7 @@ def init_time_stepping(PrP, TsP):
     """what every method starts with """
 
     Nts, t0, tE = TsP.Nts, TsP.t0, TsP.tE
-    trange = np.linspace(t0, tE, Nts)
+    trange = np.linspace(t0, tE, Nts+1)
     Nv = len(PrP.invinds)
 
     if Nts % TsP.NOutPutPts != 0:
