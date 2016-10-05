@@ -387,10 +387,10 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     tcur = t0
 
-    # MFac = dt
+    MFac = dt
     # CFac = 1  # /dt
     # PFac = -1  # -1 for symmetry (if CFac==1)
-    # PFacI = -1./dt
+    PFacI = -1./dt
 
     dtstrdct = dict(prefix=TsP.svdatapath, method='x', N=PrP.N,
                     tolcor=TsP.TolCorB,
@@ -409,7 +409,7 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     Bcc, BTcc, MPc, fpbcc, vp_init, Npc = pinthep(Bc, BTc, MP, fpbc,
                                                   vp_init, PrP.Pdof)
 
-    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, PFacI*(-1)*BTcc])
+    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, (-1)*BTcc])
     IterAp = CFac*sps.hstack([Bcc, sps.csr_matrix((Npc, Npc))])
     IterA = sps.vstack([IterAv, IterAp])
     if TsP.linatol == 0:
