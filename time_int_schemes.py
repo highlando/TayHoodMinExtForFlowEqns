@@ -3,12 +3,15 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
 
+from sksparse.cholmod import cholesky
+
 import dolfin_navier_scipy.dolfin_to_sparrays as dts
 # import dolfin_to_nparrays as dtn
 import time
 
 __all__ = ['halfexp_euler_smarminex',
            'halfexp_euler_nseind2',
+           'projection_minex_ind1',
            'comp_cont_error',
            'expand_vp_dolfunc',
            'get_conv_curfv_rearr',
@@ -371,26 +374,24 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
 
 def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
-                          vp_init=None):
+                          vpz_init=None):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
     #
     # Basic Eqn:
     #
-    # 1/dt*M  -B.T    q+       1/dt*M*qc - K(qc) + fc
-    #    B        * pc   =   g
+    # 1/dt*M*P  -B.T  -B.T     q+   =   1/dt*M*P*qc - K(qc) + fc
+    #        B     0     0  *  pc   =   gc
+    #        0     0    -L     zc   =   dgc
     #
-    #
+    # where `L := B * M.-1 * B.T` and `P = I - [M.-1 * B.T * L.-1 * B]`
 
     Nts, t0, tE, dt, Nv = init_time_stepping(PrP, TsP)
 
     tcur = t0
 
     MFac = dt
-    # CFac = 1  # /dt
-    # PFac = -1  # -1 for symmetry (if CFac==1)
-    PFacI = -1./dt
 
     dtstrdct = dict(prefix=TsP.svdatapath, method='x', N=PrP.N,
                     tolcor=TsP.TolCorB,
@@ -400,142 +401,130 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         np.load(cdatstr + '.npy')
         print 'loaded data from ', cdatstr, ' ...'
     except IOError:
-        np.save(cdatstr, vp_init)
+        np.save(cdatstr, vpz_init)
         print 'saving to ', cdatstr, ' ...'
+
+    Bcc, BTcc, MPc, fpbcc, vp_init, Npc = \
+        pinthep(Bc, BTc, MP, fpbc, vpz_init[:Nv+Bc.shape[0], :], PrP.Pdof)
+
+    MVasLL = cholesky(Mc)
+    MPasLL = cholesky(MPc)
+
+    def lplc(zvec):
+        ''' Application of `Laplace = B * M.-1 * B.T` '''
+        return np.atleast_2d(Bcc*MVasLL.solve_A((Bcc.T*zvec).flatten())).T
+
+    lplc_linop = spsla.LinearOperator((Npc, Npc), matvec=lplc,
+                                      dtype=np.float32)
+
+    def lplcmo(zvec):
+        ''' Application of `Laplace.-1 = (B * M.-1 * B.T).-1` '''
+        lplcv = krypy.linsys.LinearSystem(lplc_linop, zvec, self_adjoint=True)
+        return (krypy.linsys.Cg(lplcv, tol=1e-14)).xk
+
+    def apply_mPi(vvec):
+        return Mc*vvec - BTcc*lplcmo(Bcc*vvec)
+
+    def coeffmatvec(vpz):
+        v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[Npc:, ]
+        mpiv = apply_mPi(v)
+        cfmvecone = MFac*(1./dt*mpiv + Ac*v - BTcc*p - BTcc*z)
+        cfmvectwo = Bcc*v
+        cfmvectri = -lplcmo(z)
+        return np.vstack([cfmvecone, cfmvectwo, cfmvectri])
+
+    coeffmat_linop = spsla.\
+        LinearOperator((Nv+2*Npc, Nv+2*Npc), matvec=coeffmatvec,
+                       dtype=np.float32)
+
+    # if TsP.linatol == 0:
+    #     IterAfac = spsla.factorized(IterA)
+
+    vpz_old = vpz_init
+    vpz_oldold = vpz_old
+    vp_old = vpz_old[:Nv+Npc, :]
 
     v, p = expand_vp_dolfunc(PrP, vp=vp_init, vc=None, pc=None)
     TsP.UpFiles.u_file << v, tcur
     TsP.UpFiles.p_file << p, tcur
-    Bcc, BTcc, MPc, fpbcc, vp_init, Npc = pinthep(Bc, BTc, MP, fpbc,
-                                                  vp_init, PrP.Pdof)
 
-    IterAv = MFac*sps.hstack([1.0/dt*Mc + Ac, (-1)*BTcc])
-    IterAp = CFac*sps.hstack([Bcc, sps.csr_matrix((Npc, Npc))])
-    IterA = sps.vstack([IterAv, IterAp])
-    if TsP.linatol == 0:
-        IterAfac = spsla.factorized(IterA)
-
-    vp_old = vp_init
-    vp_old = np.vstack([vp_init[:Nv], 1./PFacI*vp_init[Nv:]])
-    vp_oldold = vp_old
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
 
-    # Mvp = sps.csr_matrix(sps.block_diag((Mc, MPc)))
-    # Mvp = sps.eye(Mc.shape[0] + MPc.shape[0])
-    # Mvp = None
-
-    # M matrix for the minres routine
-    # M accounts for the FEM discretization
-
-    Mcfac = spsla.splu(Mc)
-    MPcfac = spsla.splu(MPc)
-
-    def _MInv(vp):
-        # v, p = vp[:Nv, ], vp[Nv:, ]
-        # lsv = krypy.linsys.LinearSystem(Mc, v, self_adjoint=True)
-        # lsp = krypy.linsys.LinearSystem(MPc, p, self_adjoint=True)
-        # Mv = (krypy.linsys.Cg(lsv, tol=1e-14)).xk
-        # Mp = (krypy.linsys.Cg(lsp, tol=1e-14)).xk
-        v, p = vp[:Nv, ], vp[Nv:, ]
-        Mv = np.atleast_2d(Mcfac.solve(v.flatten())).T
-        Mp = np.atleast_2d(MPcfac.solve(p.flatten())).T
-        return np.vstack([Mv, Mp])
+    def _MInv(vpz):
+        v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[Npc:, ]
+        Minvv = np.atleast_2d(MVasLL.solve_A(v.flatten())).T
+        Minvp = np.atleast_2d(MPasLL.solve_A(p.flatten())).T
+        Minvz = np.atleast_2d(MPasLL.solve_A(z.flatten())).T
+        return np.vstack([Minvv, Minvp, Minvz])
 
     MInv = spsla.LinearOperator(
-        (Nv + Npc,
-         Nv + Npc),
+        (Nv + 2*Npc,
+         Nv + 2*Npc),
         matvec=_MInv,
         dtype=np.float32)
 
-    def ind2_ip(vp1, vp2):
-        """
-
-        for applying the fem inner product
-        """
-        v1, v2 = vp1[:Nv, ], vp2[:Nv, ]
-        p1, p2 = vp1[Nv:, ], vp2[Nv:, ]
-        return mass_fem_ip(v1, v2, Mcfac) + mass_fem_ip(p1, p2, MPcfac)
-
-    inikryupd = TsP.inikryupd
     iniiterfac = TsP.iniiterfac  # the first krylov step needs more maxiter
 
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
             cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
             try:
-                vp_next = np.load(cdatstr + '.npy')
+                vpz_next = np.load(cdatstr + '_vpz' + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
-                vp_next = np.vstack([vp_next[:Nv], 1./PFacI*vp_next[Nv:]])
-                vp_oldold = vp_old
-                vp_old = vp_next
-                if tcur == dt+dt:
-                    iniiterfac = 1  # fac only in the first Krylov Call
+                vpz_oldold = vpz_old
+                vpz_old = vpz_next
             except IOError:
                 print 'computing data for ', cdatstr, ' ...'
                 ConV = dts.get_convvec(u0_dolfun=v, V=PrP.V)
                 CurFv = dts.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
 
-                Iterrhs = np.vstack([MFac*1.0/dt*Mc*vp_old[:Nv, ],
-                                     np.zeros((Npc, 1))]) +\
+                gdot = np.zeros((Npc, 1))  # TODO: implement \dot g and fpbcc
+                Iterrhs = np.vstack([MFac*1.0/dt*apply_mPi(vpz_old[:Nv, ]),
+                                     np.zeros((2*Npc, 1))]) +\
                     np.vstack([MFac*(fvbc + CurFv - ConV[PrP.invinds, ]),
-                               CFac*fpbcc])
+                               fpbcc, gdot])
 
                 if TsP.linatol == 0:
-                    # ,vp_old,tol=TsP.linatol)
-                    vp_new = IterAfac(Iterrhs.flatten())
-                    # vp_new = spsla.spsolve(IterA, Iterrhs)
-                    vp_old = np.atleast_2d(vp_new).T
-                    TolCor = 0
-
+                    raise NotImplementedError('no direct solves for implicit' +
+                                              ' projection minext scheme')
                 else:
-                    if inikryupd and tcur == t0:
-                        print '\n1st step direct solve to initialize krylov\n'
-                        vp_new = spsla.spsolve(IterA, Iterrhs)
-                        vp_old = np.atleast_2d(vp_new).T
-                        TolCor = 0
-                        inikryupd = False  # only once !!
+                    if TsP.TolCorB:
+                        NormRhsInd2 = \
+                            np.sqrt(np.dot(Iterrhs.T, MInv(Iterrhs)))[0][0]
+                        TolCor = 1.0 / np.max([NormRhsInd2, 1])
                     else:
-                        if TsP.TolCorB:
-                            NormRhsInd2 = \
-                                np.sqrt(ind2_ip(Iterrhs, Iterrhs))[0][0]
-                            TolCor = 1.0 / np.max([NormRhsInd2, 1])
-                        else:
-                            TolCor = 1.0
+                        TolCor = 1.0
 
-                        curls = krypy.linsys.LinearSystem(IterA, Iterrhs,
-                                                          M=MInv)
+                    curls = krypy.linsys.LinearSystem(coeffmat_linop, Iterrhs,
+                                                      M=MInv)
 
-                        tstart = time.time()
+                    tstart = time.time()
 
-                        # extrapolating the initial value
-                        upv = (vp_old - vp_oldold)
+                    # extrapolating the initial value
+                    upvz = (vpz_old - vpz_oldold)  # this is zero in 1st iter
 
-                        ret = krypy.linsys.\
-                            RestartedGmres(curls, x0=vp_old + upv,
-                                           tol=TolCor*TsP.linatol,
-                                           maxiter=iniiterfac*TsP.MaxIter,
-                                           max_restarts=100)
+                    ret = krypy.linsys.\
+                        RestartedGmres(curls, x0=vpz_old + upvz,
+                                       tol=TolCor*TsP.linatol,
+                                       maxiter=iniiterfac*TsP.MaxIter,
+                                       max_restarts=100)
 
-                        # ret = krypy.linsys.\
-                        #     Minres(curls, maxiter=20*TsP.MaxIter,
-                        #            x0=vp_old + upv, tol=TolCor*TsP.linatol)
-                        tend = time.time()
-                        vp_oldold = vp_old
-                        vp_old = ret.xk
+                    tend = time.time()
+                    vpz_oldold = vpz_old
+                    vpz_old = ret.xk
 
-                        print ('Needed {0} of max {4}*{1} iterations: ' +
-                               'final relres = {2}\n TolCor was {3}').\
-                            format(len(ret.resnorms), TsP.MaxIter,
-                                   ret.resnorms[-1], TolCor, iniiterfac)
-                        print 'Elapsed time {0}'.format(tend - tstart)
-                        iniiterfac = 1  # fac only in the first Krylov Call
+                    print ('Needed {0} of max {4}*{1} iterations: ' +
+                           'final relres = {2}\n TolCor was {3}').\
+                        format(len(ret.resnorms), TsP.MaxIter,
+                               ret.resnorms[-1], TolCor, iniiterfac)
+                    print 'Elapsed time {0}'.format(tend - tstart)
+                    iniiterfac = 1  # fac only in the first Krylov Call
 
-                np.save(cdatstr, np.vstack([vp_old[:Nv],
-                                            PFacI*vp_old[Nv:]]))
+                np.save(cdatstr + '_vpz', vpz_old)
 
             vc = vp_old[:Nv, ]
             print 'Norm of current v: ', np.linalg.norm(vc)
-            pc = PFacI*vp_old[Nv:, ]
+            pc = vp_old[Nv:, ]
 
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
 
