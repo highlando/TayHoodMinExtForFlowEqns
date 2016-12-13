@@ -37,7 +37,7 @@ class TimestepParams(object):
         self.MaxIter = 85
         self.Ml = None  # preconditioners
         self.Mr = None
-        self.ParaviewOutput = False
+        self.ParaviewOutput = True
         self.SaveIniVal = False
         self.SaveTStps = False
         self.TolCorB = False
@@ -49,7 +49,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         N=40, NtsList=None, LinaTol=None, MaxIter=None,
                         UsePreTStps=None, SaveTStps=None, SaveIniVal=None,
                         scheme='TH', nu=0, Re=None, inikryupd=None,
-                        tolcor=False, prob=None):
+                        tolcor=False, prob=None, debug=False):
     """system to solve
 
              du\dt + (u*D)u + grad p = fv
@@ -59,7 +59,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
     methdict = {
         1: 'HalfExpEulSmaMin',
-        2: 'HalfExpEulInd2'}
+        2: 'HalfExpEulInd2',
+        3: 'proj_min_ext'}
 
     # instantiate object containing mesh, V, Q, rhs, velbcs, invinds
     # set nu=0 for Euler flow
@@ -80,6 +81,7 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
                         ppin=None, V=femp['V'], Q=femp['Q'],
                         fv=fvbc, fp=fpbc, vel_pcrd_stps=0, vel_nwtn_stps=0,
                         return_vp=True, diribcs=femp['diribcs'],
+                        clearprvdata=True,
                         invinds=femp['invinds'])
         dimredsys = Bc.shape[1] + Bc.shape[0]
         vp_init = snu.solve_steadystate_nse(**inivdict)[0]
@@ -210,12 +212,17 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
 
         if method == 2:
             tis.halfexp_euler_nseind2(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc,
-                                      PrP, TsP, vp_init=vp_init)
+                                      PrP, TsP, debug=debug, vp_init=vp_init)
         elif method == 1:
             tis.halfexp_euler_smarminex(MSmeCL, ASmeCL, BSme,
                                         MPa, FvbcSme, FpbcSme,
                                         B2BoolInv, PrP, TsP,
                                         qqpq_init=qqpq_init, vp_init=vp_init)
+
+        elif method == 3:
+            vpz_init = np.vstack([vp_init, np.zeros((Bc.shape[0], 1))])
+            tis.projection_minex_ind1(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc, PrP,
+                                      TsP, debug=debug, vpz_init=vpz_init)
 
         # Output only in first iteration!
         TsP.ParaviewOutput = False
@@ -285,7 +292,7 @@ def save_simu(TsP, PrP, scheme=''):
 
     print 'For the error plot, run\nimport plot_utils as ' +\
         'plu\nplu.jsd_plot_errs("' + JsFile + '")'
-    print 'For the error valus, run\nimport plot_utils as ' +\
+    print 'For the error values, run\nimport plot_utils as ' +\
         'plu\nplu.jsd_calc_l2errs("' + JsFile + '")'
 
     return
@@ -312,21 +319,31 @@ class UpFiles(object):
 
 
 if __name__ == '__main__':
-    # import dolfin_navier_scipy.data_output_utils as dou
-    # dou.logtofile(logstr='logfile_m2_cylinder_div3')
+    import dolfin_navier_scipy.data_output_utils as dou
 
     scheme = 'CR'
-    N = 3
-    Re = 60
-    tE = .2
+    N = 3  # paper num tests: 3
+    Re = 60  # paper num tests: 60
+    tE = .1  # paper num tests: .2
     prob = 'cyl'
-    tol = 2**(-16)
-    Ntslist = [512]  # [64, 128, 256]  # , 512, 1024]
+    tol = 2**(-14)
+    Ntslist = [1024]  # [64, 128, 256]  # , 512, 1024]
+    dou.logtofile(logstr='logfile_m3_cylinder_Nts{1}_tol{0}'.
+                  format(Ntslist[0], tol))
+
+    debug = False
 
     # solve_euler_timedep(method=2, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
     #                     MaxIter=1000,
     #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
-    solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
-                        MaxIter=370,
+    # solve_euler_timedep(method=1, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
+    #                     MaxIter=370,
+    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+
+    # solve_euler_timedep(method=2, tE=tE, Re=Re,
+    #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
+
+    solve_euler_timedep(method=3, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
+                        MaxIter=450, debug=debug,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)

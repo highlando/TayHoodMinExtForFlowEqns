@@ -1,5 +1,7 @@
 from dolfin import errornorm, TrialFunction, Function, assemble, div, dx, norm
 import numpy as np
+import numpy.linalg as npla
+import scipy.linalg as spla
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
 
@@ -356,7 +358,6 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
             tcur = tnext
 
         print '%d of %d time steps completed ' % (etap*Nts/TsP.NOutPutPts, Nts)
-        print 'DEBUG: idx={0}'.format(idx)
 
         if TsP.ParaviewOutput:
             TsP.UpFiles.u_file << v, tcur
@@ -374,7 +375,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
 
 def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
-                          vpz_init=None):
+                          vpz_init=None, debug=False):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
@@ -387,10 +388,11 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     #
     # where `L := B * M.-1 * B.T` and `P = I - [M.-1 * B.T * L.-1 * B]`
 
-    Nts, t0, tE, dt, Nv = init_time_stepping(PrP, TsP)
+    Nts, t0, tE, trange, Nv = init_time_stepping(PrP, TsP)
 
     tcur = t0
 
+    dt = trange[1] - trange[0]
     MFac = dt
 
     dtstrdct = dict(prefix=TsP.svdatapath, method='x', N=PrP.N,
@@ -410,35 +412,48 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     MVasLL = cholesky(Mc)
     MPasLL = cholesky(MPc)
 
-    def lplc(zvec):
-        ''' Application of `Laplace = B * M.-1 * B.T` '''
-        return np.atleast_2d(Bcc*MVasLL.solve_A((Bcc.T*zvec).flatten())).T
+    if TsP.linatol == 0:
+        invlplc = npla.inv(Bcc*MVasLL.solve_A(BTcc.todense()))
+        MPiprj = Mc.todense() - BTcc*invlplc*Bcc
+        coeffmat = np.\
+            vstack([MFac*np.hstack([1./dt*MPiprj + Ac,
+                                    -BTcc.todense(), -BTcc.todense()]),
+                    np.hstack([Bcc.todense(), np.zeros((Npc, 2*Npc))]),
+                    np.hstack([np.zeros((Npc, Nv+Npc)), -invlplc])])
 
-    lplc_linop = spsla.LinearOperator((Npc, Npc), matvec=lplc,
-                                      dtype=np.float32)
+        cfmtlupiv = spla.lu_factor(coeffmat)
+        MPi_sdpt_lo = MPiprj
 
-    def lplcmo(zvec):
-        ''' Application of `Laplace.-1 = (B * M.-1 * B.T).-1` '''
-        lplcv = krypy.linsys.LinearSystem(lplc_linop, zvec, self_adjoint=True)
-        return (krypy.linsys.Cg(lplcv, tol=1e-14)).xk
+    else:
+        invlplc_linop, lplc_linop, MPi_lplc_lo, MPi_sdpt_lo = \
+            laplace_proj_ops(M=Mc, B=Bcc, MP=MPc)
 
-    def apply_mPi(vvec):
-        return Mc*vvec - BTcc*lplcmo(Bcc*vvec)
+        def coeffmatvec(vpz):
+            v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[-Npc:, ]
+            mpiv = MPi_sdpt_lo*v
+            cfmvecone = MFac*(1./dt*mpiv + Ac*v - BTcc*p - BTcc*z)
+            cfmvectwo = Bcc*v
+            cfmvectri = invlplc_linop(z)
+            return np.vstack([cfmvecone, cfmvectwo, cfmvectri])
 
-    def coeffmatvec(vpz):
-        v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[Npc:, ]
-        mpiv = apply_mPi(v)
-        cfmvecone = MFac*(1./dt*mpiv + Ac*v - BTcc*p - BTcc*z)
-        cfmvectwo = Bcc*v
-        cfmvectri = -lplcmo(z)
-        return np.vstack([cfmvecone, cfmvectwo, cfmvectri])
+        coeffmat_linop = spsla.\
+            LinearOperator((Nv+2*Npc, Nv+2*Npc), matvec=coeffmatvec,
+                           dtype=np.float32)
 
-    coeffmat_linop = spsla.\
-        LinearOperator((Nv+2*Npc, Nv+2*Npc), matvec=coeffmatvec,
-                       dtype=np.float32)
+        def _MInv(vpz):
+            v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[-Npc:, ]
+            Minvv = np.atleast_2d(MVasLL.solve_A(v.flatten())).T
+            Minvp = np.atleast_2d(MPasLL.solve_A(p.flatten())).T
+            Minvz = np.atleast_2d(MPasLL.solve_A(z.flatten())).T
+            return np.vstack([Minvv, Minvp, Minvz])
 
-    # if TsP.linatol == 0:
-    #     IterAfac = spsla.factorized(IterA)
+        MInv = spsla.LinearOperator(
+            (Nv + 2*Npc,
+             Nv + 2*Npc),
+            matvec=_MInv,
+            dtype=np.float32)
+
+        iniiterfac = TsP.iniiterfac  # the first krylov step needs more maxiter
 
     vpz_old = vpz_init
     vpz_oldold = vpz_old
@@ -450,43 +465,30 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     ContiRes, VelEr, PEr, TolCorL = [], [], [], []
 
-    def _MInv(vpz):
-        v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[Npc:, ]
-        Minvv = np.atleast_2d(MVasLL.solve_A(v.flatten())).T
-        Minvp = np.atleast_2d(MPasLL.solve_A(p.flatten())).T
-        Minvz = np.atleast_2d(MPasLL.solve_A(z.flatten())).T
-        return np.vstack([Minvv, Minvp, Minvz])
-
-    MInv = spsla.LinearOperator(
-        (Nv + 2*Npc,
-         Nv + 2*Npc),
-        matvec=_MInv,
-        dtype=np.float32)
-
-    iniiterfac = TsP.iniiterfac  # the first krylov step needs more maxiter
-
     for etap in range(1, TsP.NOutPutPts + 1):
         for i in range(Nts / TsP.NOutPutPts):
             cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
             try:
-                vpz_next = np.load(cdatstr + '_vpz' + '.npy')
+                if debug:
+                    raise IOError("debug: nothing is loaded")
+                vpz_new = np.load(cdatstr + '_vpz' + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
                 vpz_oldold = vpz_old
-                vpz_old = vpz_next
             except IOError:
                 print 'computing data for ', cdatstr, ' ...'
+                v, p = expand_vp_dolfunc(PrP, vp=vp_old)
                 ConV = dts.get_convvec(u0_dolfun=v, V=PrP.V)
                 CurFv = dts.get_curfv(PrP.V, PrP.fv, PrP.invinds, tcur)
 
                 gdot = np.zeros((Npc, 1))  # TODO: implement \dot g and fpbcc
-                Iterrhs = np.vstack([MFac*1.0/dt*apply_mPi(vpz_old[:Nv, ]),
+                Iterrhs = np.vstack([MFac*1./dt*MPi_sdpt_lo*vpz_old[:Nv, ],
                                      np.zeros((2*Npc, 1))]) +\
                     np.vstack([MFac*(fvbc + CurFv - ConV[PrP.invinds, ]),
                                fpbcc, gdot])
 
                 if TsP.linatol == 0:
-                    raise NotImplementedError('no direct solves for implicit' +
-                                              ' projection minext scheme')
+                    vpz_new = spla.lu_solve(cfmtlupiv, Iterrhs)
+
                 else:
                     if TsP.TolCorB:
                         NormRhsInd2 = \
@@ -499,19 +501,14 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                                                       M=MInv)
 
                     tstart = time.time()
-
                     # extrapolating the initial value
                     upvz = (vpz_old - vpz_oldold)  # this is zero in 1st iter
-
                     ret = krypy.linsys.\
-                        RestartedGmres(curls, x0=vpz_old + upvz,
+                        RestartedGmres(curls, x0=(vpz_old + upvz),
                                        tol=TolCor*TsP.linatol,
                                        maxiter=iniiterfac*TsP.MaxIter,
                                        max_restarts=100)
-
                     tend = time.time()
-                    vpz_oldold = vpz_old
-                    vpz_old = ret.xk
 
                     print ('Needed {0} of max {4}*{1} iterations: ' +
                            'final relres = {2}\n TolCor was {3}').\
@@ -520,11 +517,19 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
                     print 'Elapsed time {0}'.format(tend - tstart)
                     iniiterfac = 1  # fac only in the first Krylov Call
 
-                np.save(cdatstr + '_vpz', vpz_old)
+                    vpz_new = ret.xk
+                    vpz_oldold = vpz_old
 
-            vc = vp_old[:Nv, ]
-            print 'Norm of current v: ', np.linalg.norm(vc)
-            pc = vp_old[Nv:, ]
+                np.save(cdatstr + '_vpz', vpz_new)
+
+            # End -- check for cached results
+            # prepare for next iteration
+            vpz_old = vpz_new
+            vp_old = vpz_old[:Nv+Npc, :]
+
+            vc = vpz_old[:Nv, ]
+            # print 'Norm of current v: ', np.linalg.norm(vc)
+            pc = vpz_old[Nv:Nv+Npc, ]
 
             v, p = expand_vp_dolfunc(PrP, vp=None, vc=vc, pc=pc)
 
@@ -561,7 +566,7 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
 
 def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
-                          vp_init=None):
+                          debug=False, vp_init=None):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
@@ -573,9 +578,10 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     #
     #
 
-    Nts, t0, tE, dt, Nv = init_time_stepping(PrP, TsP)
+    Nts, t0, tE, trange, Nv = init_time_stepping(PrP, TsP)
 
     tcur = t0
+    dt = trange[1] - trange[0]
 
     MFac = dt
     CFac = 1  # /dt
@@ -653,6 +659,8 @@ def halfexp_euler_nseind2(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
         for i in range(Nts / TsP.NOutPutPts):
             cdatstr = get_dtstr(t=tcur+dt, **dtstrdct)
             try:
+                if debug:
+                    raise IOError("debug: nothing is loaded")
                 vp_next = np.load(cdatstr + '.npy')
                 print 'loaded data from ', cdatstr, ' ...'
                 vp_next = np.vstack([vp_next[:Nv], 1./PFacI*vp_next[Nv:]])
@@ -871,3 +879,62 @@ def get_dtstr(t=None, prefix='', method=None, N=None,
               nu=None, Nts=None, tol=None, te=None, tolcor=None, **kwargs):
     return prefix + '_m{0}_N{1}_nu{2}_Nts{3}_tol{4}_tolcor{7}_te{6}_t{5}'.\
         format(method, N, nu, Nts, tol, t, te, tolcor)
+
+
+def laplace_proj_ops(M=None, B=None, BT=None, MP=None):
+    ''' laplace, inverse of laplace, and `M*Pi` projector
+
+    as `spsla.LinearOperator`s'''
+
+    if BT is None:
+        BT = B.T
+
+    Np, Nv = B.shape
+    MasLL = cholesky(M)
+
+    MPasLL = cholesky(MP)
+
+    def lplc(zvec):
+        ''' Application of `Laplace = B * M.-1 * B.T` '''
+        return np.atleast_2d(B*MasLL.solve_A((B.T*zvec).flatten())).T
+
+    lplc_linop = spsla.LinearOperator((Np, Np), matvec=lplc,
+                                      dtype=np.float32)
+
+    def _MPInv(pvec):
+        Minvp = np.atleast_2d(MPasLL.solve_A(pvec.flatten())).T
+        return Minvp
+
+    MPInv = spsla.LinearOperator((Np, Np), matvec=_MPInv,
+                                 dtype=np.float32)
+
+    def invlplc(zvec):
+        ''' Application of `Laplace.-1 = (B * M.-1 * B.T).-1` '''
+        lplcv = krypy.linsys.LinearSystem(lplc_linop, zvec,
+                                          M=MPInv, self_adjoint=True)
+        return (krypy.linsys.Cg(lplcv, tol=1e-12)).xk
+        # return (krypy.linsys.Gmres(lplcv, tol=1e-14)).xk
+
+    invlplc_linop = spsla.LinearOperator((Np, Np), matvec=invlplc,
+                                         dtype=np.float32)
+
+    def apply_MPi_invlplc(vvec):
+        ''' direct application of `M - B.T*Laplace.-1*B` '''
+        return M*vvec - B.T*invlplc(B*vvec)
+
+    def apply_MPi_sadpt(vvec):
+        ''' saddle point realization of `M - B.T*Laplace.-1*B` '''
+        sdpntm = sps.\
+            vstack([sps.hstack([M, B.T], format='csr'),
+                    sps.hstack([B, sps.csr_matrix((Np, Np))], format='csr')
+                    ], format='csr')
+        pivp = spsla.spsolve(sdpntm, np.vstack([M*vvec, np.zeros((Np, 1))]))
+        return (M*pivp[:Nv]).reshape((Nv, 1))
+
+    MPi_invlplc_linop = spsla.\
+        LinearOperator((Nv, Nv), matvec=apply_MPi_invlplc, dtype=np.float32)
+
+    MPi_sadpt_linop = spsla.LinearOperator((Nv, Nv), matvec=apply_MPi_sadpt,
+                                           dtype=np.float32)
+
+    return invlplc_linop, lplc_linop, MPi_invlplc_linop, MPi_sadpt_linop
