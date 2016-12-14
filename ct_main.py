@@ -319,7 +319,6 @@ class UpFiles(object):
 
 
 if __name__ == '__main__':
-    import dolfin_navier_scipy.data_output_utils as dou
 
     scheme = 'CR'
     N = 3  # paper num tests: 3
@@ -327,9 +326,11 @@ if __name__ == '__main__':
     tE = .1  # paper num tests: .2
     prob = 'cyl'
     tol = 2**(-14)
-    Ntslist = [1024]  # [64, 128, 256]  # , 512, 1024]
-    dou.logtofile(logstr='logfile_m3_cylinder_Nts{1}_tol{0}'.
-                  format(Ntslist[0], tol))
+    Ntslist = [512]  # [64, 128, 256]  # , 512, 1024]
+
+    # import dolfin_navier_scipy.data_output_utils as dou
+    # dou.logtofile(logstr='logfile_m3_cylinder_Nts{1}_tol{0}'.
+    #               format(Ntslist[0], tol))
 
     debug = False
 
@@ -345,5 +346,5 @@ if __name__ == '__main__':
     #                     N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
 
     solve_euler_timedep(method=3, tE=tE, Re=Re, LinaTol=tol, tolcor=True,
-                        MaxIter=450, debug=debug,
+                        MaxIter=550, debug=debug,
                         N=N, NtsList=Ntslist, scheme=scheme, prob=prob)
