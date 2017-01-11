@@ -3,7 +3,10 @@ import dolfin
 
 import numpy as np
 # import scipy.sparse as sps
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 import os
 import glob
 
