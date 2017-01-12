@@ -328,9 +328,9 @@ if __name__ == '__main__':
     tol = 2**(-14)
     Ntslist = [512]  # [64, 128, 256]  # , 512, 1024]
 
-    # import dolfin_navier_scipy.data_output_utils as dou
-    # dou.logtofile(logstr='logfile_m3_cylinder_Nts{1}_tol{0}'.
-    #               format(Ntslist[0], tol))
+    import dolfin_navier_scipy.data_output_utils as dou
+    dou.logtofile(logstr='logfile_m3_cylinder_Nts{1}_tol{0}'.
+                  format(Ntslist[0], tol))
 
     debug = False
 
