@@ -409,6 +409,8 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     Bcc, BTcc, MPc, fpbcc, vp_init, Npc = \
         pinthep(Bc, BTc, MP, fpbc, vpz_init[:Nv+Bc.shape[0], :], PrP.Pdof)
 
+
+    Mc = sps.eye(20)
     MVasLL = cholesky(Mc)
     MPasLL = cholesky(MPc)
 

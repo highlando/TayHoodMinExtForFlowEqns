@@ -1,6 +1,9 @@
-import scipy.sparse as sps
 import numpy as np
+import scipy.sparse as sps
+
+import dolfin
 from sksparse.cholmod import cholesky
+
 
 N = 20
 mat = sps.eye(N, format='csc')
