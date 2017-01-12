@@ -1,3 +1,5 @@
+from sksparse.cholmod import cholesky  # on otto import cholesky before dolfin
+
 import dolfin
 # import plot_utils as plu
 
@@ -222,7 +224,8 @@ def solve_euler_timedep(method=1, Omega=8, tE=None, Prec=None,
         elif method == 3:
             vpz_init = np.vstack([vp_init, np.zeros((Bc.shape[0], 1))])
             tis.projection_minex_ind1(Mc, MPa, Ac, BTc, Bc, fvbc, fpbc, PrP,
-                                      TsP, debug=debug, vpz_init=vpz_init)
+                                      TsP, debug=debug, vpz_init=vpz_init,
+                                      cholesky=cholesky)
 
         # Output only in first iteration!
         TsP.ParaviewOutput = False

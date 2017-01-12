@@ -5,8 +5,6 @@ import scipy.linalg as spla
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsla
 
-from sksparse.cholmod import cholesky
-
 import dolfin_navier_scipy.dolfin_to_sparrays as dts
 # import dolfin_to_nparrays as dtn
 import time
@@ -375,7 +373,7 @@ def halfexp_euler_smarminex(MSme, ASme, BSme, MP, FvbcSme, FpbcSme, B2BoolInv,
 
 
 def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
-                          vpz_init=None, debug=False):
+                          vpz_init=None, debug=False, cholesky=None):
     """halfexplicit euler for the NSE in index 2 formulation
     """
     #
@@ -387,6 +385,9 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     #        0     0    -L     zc   =   dgc
     #
     # where `L := B * M.-1 * B.T` and `P = I - [M.-1 * B.T * L.-1 * B]`
+
+    # TODO: if cholesky is None:
+    #     from sksparse.cholmod import cholesky
 
     Nts, t0, tE, trange, Nv = init_time_stepping(PrP, TsP)
 
@@ -409,8 +410,6 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
     Bcc, BTcc, MPc, fpbcc, vp_init, Npc = \
         pinthep(Bc, BTc, MP, fpbc, vpz_init[:Nv+Bc.shape[0], :], PrP.Pdof)
 
-
-    Mc = sps.eye(20)
     MVasLL = cholesky(Mc)
     MPasLL = cholesky(MPc)
 
@@ -428,7 +427,7 @@ def projection_minex_ind1(Mc, MP, Ac, BTc, Bc, fvbc, fpbc, PrP, TsP,
 
     else:
         invlplc_linop, lplc_linop, MPi_lplc_lo, MPi_sdpt_lo = \
-            laplace_proj_ops(M=Mc, B=Bcc, MP=MPc)
+            laplace_proj_ops(M=Mc, B=Bcc, MP=MPc, cholesky=cholesky)
 
         def coeffmatvec(vpz):
             v, p, z = vpz[:Nv, ], vpz[Nv:Nv+Npc, ], vpz[-Npc:, ]
@@ -883,7 +882,7 @@ def get_dtstr(t=None, prefix='', method=None, N=None,
         format(method, N, nu, Nts, tol, t, te, tolcor)
 
 
-def laplace_proj_ops(M=None, B=None, BT=None, MP=None):
+def laplace_proj_ops(M=None, B=None, BT=None, MP=None, cholesky=None):
     ''' laplace, inverse of laplace, and `M*Pi` projector
 
     as `spsla.LinearOperator`s'''
