@@ -324,11 +324,11 @@ class UpFiles(object):
 if __name__ == '__main__':
 
     scheme = 'CR'
-    N = 3  # paper num tests: 3
-    Re = 60  # paper num tests: 60
+    N = 2  # paper num tests: 3
+    Re = 40  # paper num tests: 60
     tE = .1  # paper num tests: .2
     prob = 'cyl'
-    tol = 2**(-14)
+    tol = 0  # 2**(-14)
     Ntslist = [512]  # [64, 128, 256]  # , 512, 1024]
 
     import dolfin_navier_scipy.data_output_utils as dou
